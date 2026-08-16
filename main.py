@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from reader.platform.tk_runtime import configure
+from reader.platform.dpi_awareness import configure as configure_dpi_awareness
+from reader.platform.tk_runtime import configure as configure_tk_runtime
 
-configure()
+configure_dpi_awareness()
+configure_tk_runtime()
 
 import tkinter as tk
 
