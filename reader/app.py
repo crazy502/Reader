@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from bisect import bisect_right
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -10,7 +9,7 @@ from tkinter import filedialog, messagebox
 from .core.config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
 from .core.novel_parser import Novel, NovelLoadError, parse_novel
 from .core.progress import ReadingProgress, load_progress, save_progress
-from .ui.chapter_navigation import ChapterDirectory
+from .ui.chapter_navigation import ChapterDirectory, chapter_index_for_position
 from .ui.reader_view import ReaderView
 from .ui.work_view import WorkView
 from .i18n import tr
@@ -227,9 +226,7 @@ class ReaderApp:
         return min(max(0, position), len(self.novel.text))
 
     def _chapter_for_char(self, char_position: int) -> int:
-        if not self._chapter_starts:
-            return 0
-        return max(0, bisect_right(self._chapter_starts, char_position) - 1)
+        return chapter_index_for_position(self._chapter_starts, char_position)
 
     def save_current_progress(self) -> None:
         if self._save_after_id is not None:

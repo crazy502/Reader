@@ -7,8 +7,6 @@ MESSAGES = {
     "load_error": "This TXT file could not be read. Use UTF-8, UTF-8-SIG, GBK, or GB18030.",
     "empty_file_title": "Empty file",
     "empty_file": "This TXT file has no readable content.",
-    "restore_error_title": "Restore failed",
-    "restore_error": "The last reading file could not be restored and was skipped.",
     "status_no_book": "Click Open TXT to select a novel",
     "status_loaded": "Loaded: {name}",
     "work_title": "Today's Tasks",

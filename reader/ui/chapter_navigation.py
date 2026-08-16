@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Callable, Sequence
 import tkinter as tk
 import unicodedata
 
 from ..core.novel_parser import Chapter
 from ..i18n import tr
+
+
+def chapter_index_for_position(chapter_starts: Sequence[int], char_position: int) -> int:
+    """Return the chapter containing a character position using binary search."""
+    if not chapter_starts:
+        return 0
+    return max(0, bisect_right(chapter_starts, char_position) - 1)
 
 
 def matching_chapter_indices(chapters: Sequence[Chapter], query: str) -> list[int]:

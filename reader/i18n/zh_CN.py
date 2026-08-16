@@ -7,8 +7,6 @@ MESSAGES = {
     "load_error": "无法读取该 TXT 文件。请确认文件存在且编码为 UTF-8、UTF-8-SIG、GBK 或 GB18030。",
     "empty_file_title": "空文件",
     "empty_file": "该 TXT 文件没有可阅读的内容。",
-    "restore_error_title": "恢复失败",
-    "restore_error": "无法恢复上次阅读的文件，已跳过。",
     "status_no_book": "请点击“打开 TXT”选择一本小说",
     "status_loaded": "已加载：{name}",
     "work_title": "今日待处理",

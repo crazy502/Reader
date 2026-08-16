@@ -1,1 +1,2 @@
-# The MVP uses only Python's standard library (Tkinter is included with CPython on Windows).
+# Runtime dependencies: none.
+# Tkinter is included with the standard Windows CPython installer.

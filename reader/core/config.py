@@ -3,12 +3,45 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import sys
 
 
-APP_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = APP_DIR / "data"
-PROGRESS_FILE = DATA_DIR / "reader_config.json"
+APP_NAME = "Reader"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def resolve_resource_root() -> Path:
+    """Locate bundled resources without coupling user data to the executable."""
+    if getattr(sys, "frozen", False):
+        bundle_root = getattr(sys, "_MEIPASS", None)
+        if bundle_root:
+            return Path(bundle_root)
+        return Path(sys.executable).resolve().parent
+    return PROJECT_ROOT
+
+
+def resolve_user_data_dir() -> Path:
+    """Use project data while developing and APPDATA in a frozen build."""
+    if getattr(sys, "frozen", False):
+        appdata = os.environ.get("APPDATA")
+        if not appdata:
+            raise RuntimeError("APPDATA is required for a frozen Windows build")
+        return Path(appdata) / APP_NAME
+    return PROJECT_ROOT / "data"
+
+
+def ensure_user_data_dir(directory: Path | None = None) -> Path:
+    """Create and return the selected user data directory."""
+    selected = resolve_user_data_dir() if directory is None else directory
+    selected.mkdir(parents=True, exist_ok=True)
+    return selected
+
+
+RESOURCE_ROOT = resolve_resource_root()
+USER_DATA_DIR = ensure_user_data_dir()
+PROGRESS_FILE = USER_DATA_DIR / "reader_config.json"
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 *.pyd
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 .venv/
@@ -14,8 +17,15 @@ env/
 
 # Reader runtime data
 data/reader_config.json
-data/*.log
-data/*.tmp
+
+# Build output
+build/
+dist/
+# PyInstaller .spec files are intentionally tracked for reproducible releases.
+
+# Logs and temporary files
+*.log
+*.tmp
 
 # Local book files
 book/*.txt
