@@ -7,10 +7,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from .config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
-from .novel_parser import Novel, NovelLoadError, parse_novel
-from .progress import ReadingProgress, load_progress, save_progress
+from .core.config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
+from .core.novel_parser import Novel, NovelLoadError, parse_novel
+from .core.progress import ReadingProgress, load_progress, save_progress
 from .ui.chapter_navigation import ChapterDirectory
+from .ui.reader_view import ReaderView
+from .ui.work_view import WorkView
 from .i18n import tr
 
 
@@ -53,115 +55,22 @@ class ReaderApp:
     def _build_widgets(self) -> None:
         self.container = tk.Frame(self.root, background=self.settings.background_color)
         self.container.pack(fill="both", expand=True)
-
-        self.toolbar = tk.Frame(self.container, background=self.settings.background_color)
-        self.toolbar.pack(fill="x", padx=self.settings.padding_x, pady=(12, 0))
-        self.open_button = tk.Button(
-            self.toolbar,
-            text=tr("open_file"),
-            command=self.choose_file,
-            font=(self.settings.ui_font_family, 10),
+        self.reader_view = ReaderView(
+            self.container,
+            self.settings,
+            self.choose_file,
+            self.open_chapter_directory,
+            self._scrollbar_command,
         )
-        self.open_button.pack(side="left")
-        self.chapter_button = tk.Button(
-            self.toolbar,
-            text=tr("chapter_navigation"),
-            command=self.open_chapter_directory,
-            anchor="w",
-            relief="flat",
-            borderwidth=0,
-            background=self.settings.background_color,
-            activebackground=self.settings.background_color,
-            foreground=self.settings.foreground_color,
-            font=(self.settings.ui_font_family, 10, "bold"),
-            state="disabled",
-        )
-        self.chapter_button.pack(side="left", padx=(12, 0))
-        self.status = tk.Label(
-            self.toolbar,
-            text=tr("status_no_book"),
-            anchor="e",
-            background=self.settings.background_color,
-            foreground="#606060",
-            font=(self.settings.ui_font_family, 9),
-        )
-        self.status.pack(side="right", fill="x", expand=True, padx=(16, 0))
-
-        self.read_frame = tk.Frame(self.container, background=self.settings.background_color)
-        self.text_frame = tk.Frame(self.read_frame, background=self.settings.background_color)
-        self.text_frame.pack(fill="both", expand=True, pady=(12, 0))
-        self.scrollbar = tk.Scrollbar(self.text_frame, orient="vertical", command=self._scrollbar_command)
-        self.scrollbar.pack(side="right", fill="y")
-        self.text = tk.Text(
-            self.text_frame,
-            wrap="word",
-            relief="flat",
-            borderwidth=0,
-            highlightthickness=0,
-            background=self.settings.background_color,
-            foreground=self.settings.foreground_color,
-            font=(self.settings.font_family, self.settings.font_size),
-            padx=self.settings.padding_x,
-            pady=self.settings.padding_y,
-            spacing3=self.settings.line_spacing,
-            cursor="arrow",
-            state="disabled",
-            yscrollcommand=self.scrollbar.set,
-        )
-        self.text.pack(side="left", fill="both", expand=True)
-        self.text.tag_configure(
-            "chapter-title",
-            font=(self.settings.ui_font_family, self.settings.title_font_size, "bold"),
-            spacing1=12,
-            spacing3=12,
-        )
-        self.hint_label = tk.Label(
-            self.read_frame,
-            text=tr("shortcut_hint"),
-            anchor="w",
-            background=self.settings.background_color,
-            foreground="#777777",
-            font=(self.settings.ui_font_family, 9),
-        )
-        self.hint_label.pack(fill="x", padx=self.settings.padding_x, pady=(6, 10))
-
-        self.work_frame = tk.Frame(self.container, background=self.settings.work_background_color)
-        self.work_title = tk.Label(
-            self.work_frame,
-            text=tr("work_title"),
-            anchor="w",
-            background=self.settings.work_background_color,
-            foreground=self.settings.work_foreground_color,
-            font=(self.settings.ui_font_family, 16, "bold"),
-        )
-        self.work_title.pack(fill="x", padx=self.settings.padding_x, pady=(38, 18))
-        self.work_body = tk.Label(
-            self.work_frame,
-            text=tr("work_body"),
-            anchor="nw",
-            justify="left",
-            background=self.settings.work_background_color,
-            foreground=self.settings.work_foreground_color,
-            font=(self.settings.ui_font_family, 12),
-        )
-        self.work_body.pack(fill="both", expand=True, padx=self.settings.padding_x)
-        self.work_hint = tk.Label(
-            self.work_frame,
-            text=tr("work_hint"),
-            anchor="w",
-            background=self.settings.work_background_color,
-            foreground="#777777",
-            font=(self.settings.ui_font_family, 9),
-        )
-        self.work_hint.pack(fill="x", padx=self.settings.padding_x, pady=18)
+        self.work_view = WorkView(self.container, self.settings)
 
     def _bind_events(self) -> None:
-        self.text.bind("<Up>", lambda event: self._scroll_with_key(event, -1))
-        self.text.bind("<Down>", lambda event: self._scroll_with_key(event, 1))
+        self.reader_view.bind_reading_events(
+            self._scroll_with_key,
+            self._on_mouse_wheel_activity,
+        )
         self.root.bind("<Up>", lambda event: self._scroll_with_key(event, -1))
         self.root.bind("<Down>", lambda event: self._scroll_with_key(event, 1))
-        # Do not consume MouseWheel: Tk's Text class performs the natural scroll.
-        self.text.bind("<MouseWheel>", self._on_mouse_wheel_activity, add="+")
         self.root.bind_all("<Alt-q>", self._boss_key, add="+")
 
     def choose_file(self) -> None:
@@ -197,35 +106,22 @@ class ReaderApp:
         self.novel = novel
         self._chapter_starts = tuple(chapter.start_char for chapter in novel.chapters)
         self._current_chapter_index = -1
-        self.status.configure(text=tr("status_loaded", name=novel.path.name))
         self._suspend_progress_tracking = True
         try:
-            self.text.configure(state="normal")
-            self.text.delete("1.0", "end")
-            self.text.insert("1.0", novel.text)
-            for chapter in novel.chapters:
-                start = f"{chapter.start_line}.0"
-                end = f"{chapter.start_line}.{len(chapter.title)}"
-                self.text.tag_add("chapter-title", start, end)
-            self.text.configure(state="disabled")
+            self.reader_view.install_novel(novel)
             self._pending_char_position = min(max(0, char_position), len(novel.text))
             self._set_current_chapter(self._chapter_for_char(self._pending_char_position))
-            if self.text.winfo_ismapped():
+            if self.reader_view.is_mapped():
                 self._jump_to_pending_position()
         finally:
             self._suspend_progress_tracking = False
         self._progress_dirty = False
 
-    def _text_index(self, char_position: int) -> str:
-        return f"1.0 + {max(0, char_position)} chars"
-
     def _jump_to_char(self, char_position: int) -> None:
         if self.novel is None:
             return
         position = min(max(0, char_position), len(self.novel.text))
-        index = self._text_index(position)
-        self.text.mark_set("insert", index)
-        self.text.yview(index)
+        self.reader_view.jump_to_char(position)
         self.root.update_idletasks()
         self._update_current_chapter()
 
@@ -281,13 +177,7 @@ class ReaderApp:
         if index == self._current_chapter_index:
             return
         self._current_chapter_index = index
-        title = self.novel.chapters[index].title.strip()
-        if len(title) > 38:
-            title = f"{title[:37]}…"
-        self.chapter_button.configure(
-            text=tr("chapter_button", title=title),
-            state="normal",
-        )
+        self.reader_view.set_chapter_title(self.novel.chapters[index].title)
 
     def _update_current_chapter(self) -> None:
         if self.novel is None:
@@ -301,7 +191,7 @@ class ReaderApp:
 
     def _scroll_with_key(self, _event: tk.Event[tk.Misc], direction: int) -> str:
         if self.mode == READ_MODE and self.novel is not None:
-            self.text.yview_scroll(direction * self.settings.key_scroll_lines, "units")
+            self.reader_view.scroll_lines(direction * self.settings.key_scroll_lines)
             self._mark_progress_dirty()
         return "break"
 
@@ -311,7 +201,7 @@ class ReaderApp:
             self.root.after_idle(self._mark_progress_dirty)
 
     def _scrollbar_command(self, *arguments: str) -> None:
-        self.text.yview(*arguments)
+        self.reader_view.scroll(*arguments)
         self._mark_progress_dirty()
 
     def _mark_progress_dirty(self) -> None:
@@ -333,9 +223,7 @@ class ReaderApp:
     def _top_char_position(self) -> int:
         if self.novel is None:
             return 0
-        top_index = self.text.index("@0,0")
-        count = self.text.count("1.0", top_index, "chars")
-        position = 0 if not count else int(count[0])
+        position = self.reader_view.top_char_position()
         return min(max(0, position), len(self.novel.text))
 
     def _chapter_for_char(self, char_position: int) -> int:
@@ -376,22 +264,21 @@ class ReaderApp:
     def show_read_mode(self) -> None:
         self._cancel_read_delay()
         self.mode = READ_MODE
-        self.work_frame.pack_forget()
-        self.toolbar.pack(fill="x", padx=self.settings.padding_x, pady=(12, 0))
-        self.read_frame.pack(fill="both", expand=True)
+        self.work_view.hide()
+        self.reader_view.show()
         self.root.update_idletasks()
         self._jump_to_pending_position()
-        self.text.focus_set()
+        self.reader_view.focus()
 
     def show_work_mode(self) -> None:
         self._close_chapter_directory()
         self.save_current_progress()
         self._cancel_read_delay()
         self.mode = WORK_MODE
-        self.read_frame.pack_forget()
+        self.reader_view.hide_body()
         if self.novel is not None:
-            self.toolbar.pack_forget()
-        self.work_frame.pack(fill="both", expand=True)
+            self.reader_view.hide_toolbar()
+        self.work_view.show()
 
     def _boss_key(self, _event: tk.Event[tk.Misc]) -> str:
         try:

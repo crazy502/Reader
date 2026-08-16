@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 import tkinter as tk
 import unicodedata
 
-from ..novel_parser import Chapter
+from ..core.novel_parser import Chapter
 from ..i18n import tr
 
 

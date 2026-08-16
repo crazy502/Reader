@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from reader.tk_runtime import configure
+from reader.platform.tk_runtime import configure
 
 configure()
 
