@@ -276,13 +276,13 @@ class ReaderApp:
         if self._save_after_id is not None:
             self.root.after_cancel(self._save_after_id)
             self._save_after_id = None
-        if self.novel is None:
+        if self.novel is None or self._pending_char_position is not None:
             return
         char_position = self._top_char_position()
         save_progress(
             PROGRESS_FILE,
             ReadingProgress(
-                file_path=str(self.novel.path),
+                file_path=str(self.novel.path.resolve()),
                 chapter_index=self._chapter_for_char(char_position),
                 char_position=char_position,
             ),
@@ -325,7 +325,7 @@ class ReaderApp:
         try:
             if self.mode == READ_MODE:
                 self.show_work_mode()
-            elif self.novel is not None:
+            elif self.novel is not None and self._pointer_is_inside():
                 self.save_current_progress()
                 self.show_read_mode()
         except tk.TclError:

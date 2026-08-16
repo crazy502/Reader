@@ -30,14 +30,21 @@ def load_progress(path: Path) -> ReadingProgress | None:
 def save_progress(path: Path, progress: ReadingProgress) -> None:
     """Replace the JSON atomically so an interrupted save leaves the old file valid."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_name: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", dir=path.parent, delete=False, suffix=".tmp"
         ) as temporary:
+            temporary_name = Path(temporary.name)
             json.dump(asdict(progress), temporary, ensure_ascii=False, indent=2)
             temporary.flush()
-            temporary_name = Path(temporary.name)
         temporary_name.replace(path)
     except OSError:
         # Reading should never fail merely because persistence is unavailable.
         return
+    finally:
+        if temporary_name is not None:
+            try:
+                temporary_name.unlink(missing_ok=True)
+            except OSError:
+                pass
