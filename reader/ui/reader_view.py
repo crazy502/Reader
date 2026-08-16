@@ -23,13 +23,19 @@ class ReaderView:
     ) -> None:
         self.settings = settings
 
-        self.toolbar = tk.Frame(parent, background=settings.background_color)
+        self.toolbar = tk.Frame(parent, background=settings.toolbar_background_color)
         self.toolbar.pack(fill="x", padx=settings.padding_x, pady=(12, 0))
         self.open_button = tk.Button(
             self.toolbar,
             text=tr("open_file"),
             command=on_open_file,
             font=(settings.ui_font_family, 10),
+            background=settings.button_background_color,
+            foreground=settings.button_foreground_color,
+            activebackground=settings.button_hover_background_color,
+            activeforeground=settings.button_foreground_color,
+            highlightbackground=settings.border_color,
+            highlightcolor=settings.border_color,
         )
         self.open_button.pack(side="left")
         self.chapter_button = tk.Button(
@@ -39,9 +45,13 @@ class ReaderView:
             anchor="w",
             relief="flat",
             borderwidth=0,
-            background=settings.background_color,
-            activebackground=settings.background_color,
-            foreground=settings.foreground_color,
+            background=settings.button_background_color,
+            activebackground=settings.button_hover_background_color,
+            foreground=settings.button_foreground_color,
+            activeforeground=settings.button_foreground_color,
+            disabledforeground=settings.secondary_foreground_color,
+            highlightbackground=settings.border_color,
+            highlightcolor=settings.border_color,
             font=(settings.ui_font_family, 10, "bold"),
             state="disabled",
         )
@@ -50,8 +60,8 @@ class ReaderView:
             self.toolbar,
             text=tr("status_no_book"),
             anchor="e",
-            background=settings.background_color,
-            foreground="#606060",
+            background=settings.toolbar_background_color,
+            foreground=settings.secondary_foreground_color,
             font=(settings.ui_font_family, 9),
         )
         self.status.pack(side="right", fill="x", expand=True, padx=(16, 0))
@@ -59,7 +69,16 @@ class ReaderView:
         self.frame = tk.Frame(parent, background=settings.background_color)
         text_frame = tk.Frame(self.frame, background=settings.background_color)
         text_frame.pack(fill="both", expand=True, pady=(12, 0))
-        self.scrollbar = tk.Scrollbar(text_frame, orient="vertical", command=on_scrollbar)
+        self.scrollbar = tk.Scrollbar(
+            text_frame,
+            orient="vertical",
+            command=on_scrollbar,
+            background=settings.scrollbar_thumb_color,
+            activebackground=settings.button_active_background_color,
+            troughcolor=settings.scrollbar_trough_color,
+            highlightbackground=settings.border_color,
+            highlightcolor=settings.border_color,
+        )
         self.scrollbar.pack(side="right", fill="y")
         self.text = tk.Text(
             text_frame,
@@ -81,6 +100,7 @@ class ReaderView:
         self.text.tag_configure(
             "chapter-title",
             font=(settings.ui_font_family, settings.title_font_size, "bold"),
+            foreground=settings.foreground_color,
             spacing1=12,
             spacing3=12,
         )
@@ -89,7 +109,7 @@ class ReaderView:
             text=tr("shortcut_hint"),
             anchor="w",
             background=settings.background_color,
-            foreground="#777777",
+            foreground=settings.secondary_foreground_color,
             font=(settings.ui_font_family, 9),
         )
         hint_label.pack(fill="x", padx=settings.padding_x, pady=(6, 10))

@@ -7,6 +7,22 @@ from collections.abc import Callable, Sequence
 import tkinter as tk
 import unicodedata
 
+from ..core.config import (
+    BODY_BG,
+    BODY_FG,
+    BORDER,
+    BUTTON_ACTIVE_BG,
+    CHAPTER_ACTIVE_BG,
+    CHAPTER_ACTIVE_FG,
+    CHAPTER_LIST_BG,
+    CHAPTER_LIST_FG,
+    INPUT_BG,
+    SCROLLBAR_THUMB,
+    SCROLLBAR_TROUGH,
+    SECONDARY_FG,
+    TOOLBAR_BG,
+    TOOLBAR_FG,
+)
 from ..core.novel_parser import Chapter
 from ..i18n import tr
 
@@ -62,7 +78,7 @@ class ChapterDirectory:
         self.window = tk.Toplevel(parent)
         self.window.title(tr("chapter_directory_title"))
         self.window.transient(parent)
-        self.window.configure(background="#f7f3e9")
+        self.window.configure(background=BODY_BG)
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         self.window.bind("<Escape>", lambda _event: self.close())
         self._place_near_parent(parent)
@@ -71,19 +87,19 @@ class ChapterDirectory:
             self.window,
             text=tr("chapter_directory_title"),
             anchor="w",
-            background="#f7f3e9",
-            foreground="#292929",
+            background=TOOLBAR_BG,
+            foreground=TOOLBAR_FG,
             font=("Microsoft YaHei", 14, "bold"),
         )
         heading.pack(fill="x", padx=18, pady=(16, 10))
 
-        search_frame = tk.Frame(self.window, background="#f7f3e9")
+        search_frame = tk.Frame(self.window, background=BODY_BG)
         search_frame.pack(fill="x", padx=18, pady=(0, 10))
         search_label = tk.Label(
             search_frame,
             text=tr("chapter_search_label"),
-            background="#f7f3e9",
-            foreground="#555555",
+            background=BODY_BG,
+            foreground=SECONDARY_FG,
             font=("Microsoft YaHei", 10),
         )
         search_label.pack(side="left", padx=(0, 8))
@@ -94,22 +110,37 @@ class ChapterDirectory:
             relief="solid",
             borderwidth=1,
             font=("Microsoft YaHei", 10),
+            background=INPUT_BG,
+            foreground=BODY_FG,
+            insertbackground=BODY_FG,
+            selectbackground=CHAPTER_ACTIVE_BG,
+            selectforeground=CHAPTER_ACTIVE_FG,
+            highlightbackground=BORDER,
+            highlightcolor=BORDER,
         )
         self.search_entry.pack(side="left", fill="x", expand=True)
 
-        list_frame = tk.Frame(self.window, background="#f7f3e9")
+        list_frame = tk.Frame(self.window, background=BODY_BG)
         list_frame.pack(fill="both", expand=True, padx=18, pady=(0, 18))
-        scrollbar = tk.Scrollbar(list_frame, orient="vertical")
+        scrollbar = tk.Scrollbar(
+            list_frame,
+            orient="vertical",
+            background=SCROLLBAR_THUMB,
+            activebackground=BUTTON_ACTIVE_BG,
+            troughcolor=SCROLLBAR_TROUGH,
+            highlightbackground=BORDER,
+            highlightcolor=BORDER,
+        )
         scrollbar.pack(side="right", fill="y")
         self.chapter_items = tk.StringVar(value=())
         self.chapter_list = tk.Listbox(
             list_frame,
             listvariable=self.chapter_items,
             activestyle="none",
-            background="#fffdf7",
-            foreground="#292929",
-            selectbackground="#d7e8f5",
-            selectforeground="#202124",
+            background=CHAPTER_LIST_BG,
+            foreground=CHAPTER_LIST_FG,
+            selectbackground=CHAPTER_ACTIVE_BG,
+            selectforeground=CHAPTER_ACTIVE_FG,
             exportselection=False,
             relief="solid",
             borderwidth=1,

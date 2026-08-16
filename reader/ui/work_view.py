@@ -37,7 +37,7 @@ class WorkView:
             text=tr("work_hint"),
             anchor="w",
             background=settings.work_background_color,
-            foreground="#777777",
+            foreground=settings.secondary_foreground_color,
             font=(settings.ui_font_family, 9),
         )
         hint.pack(fill="x", padx=settings.padding_x, pady=18)
