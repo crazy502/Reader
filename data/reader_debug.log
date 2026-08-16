@@ -1,9 +1,0 @@
-2026-08-16T15:09:59.181 source=loader event=open_novel direction=0 chapter=0->0 page=0->0
-2026-08-16T15:10:00.186 source=restore event=restore_last_progress direction=0 chapter=0->1459 page=0->6
-2026-08-16T15:10:01.151 source=resize event=repaginate direction=0 chapter=1459->1459 page=6->6
-2026-08-16T15:10:10.443 source=keyboard event=KeyPress-Up direction=-1 chapter=1459->1459 page=6->5
-2026-08-16T15:10:10.452 source=keyboard event=KeyRelease-Up direction=0 chapter=1459->1459 page=5->5
-2026-08-16T15:10:15.955 source=keyboard event=KeyPress-Up direction=-1 chapter=1459->1459 page=5->4
-2026-08-16T15:10:15.963 source=keyboard event=KeyRelease-Up direction=0 chapter=1459->1459 page=4->4
-2026-08-16T15:10:22.568 source=keyboard event=KeyPress-Up direction=-1 chapter=1459->1459 page=4->3
-2026-08-16T15:10:22.576 source=keyboard event=KeyRelease-Up direction=0 chapter=1459->1459 page=3->3
