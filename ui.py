@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox
 from config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
 from novel_parser import Novel, NovelLoadError, parse_novel
 from progress import ReadingProgress, load_progress, save_progress
+from src.chapter_navigation import ChapterDirectory
 from src.i18n import tr
 
 
@@ -31,6 +32,8 @@ class ReaderApp:
         self._suspend_progress_tracking = False
         self._progress_dirty = False
         self._chapter_starts: tuple[int, ...] = ()
+        self._current_chapter_index = -1
+        self._chapter_directory: ChapterDirectory | None = None
         self._pending_char_position: int | None = None
         self._build_window()
         self._build_widgets()
@@ -60,6 +63,20 @@ class ReaderApp:
             font=(self.settings.ui_font_family, 10),
         )
         self.open_button.pack(side="left")
+        self.chapter_button = tk.Button(
+            self.toolbar,
+            text=tr("chapter_navigation"),
+            command=self.open_chapter_directory,
+            anchor="w",
+            relief="flat",
+            borderwidth=0,
+            background=self.settings.background_color,
+            activebackground=self.settings.background_color,
+            foreground=self.settings.foreground_color,
+            font=(self.settings.ui_font_family, 10, "bold"),
+            state="disabled",
+        )
+        self.chapter_button.pack(side="left", padx=(12, 0))
         self.status = tk.Label(
             self.toolbar,
             text=tr("status_no_book"),
@@ -179,6 +196,7 @@ class ReaderApp:
     def _install_novel(self, novel: Novel, char_position: int) -> None:
         self.novel = novel
         self._chapter_starts = tuple(chapter.start_char for chapter in novel.chapters)
+        self._current_chapter_index = -1
         self.status.configure(text=tr("status_loaded", name=novel.path.name))
         self._suspend_progress_tracking = True
         try:
@@ -191,6 +209,7 @@ class ReaderApp:
                 self.text.tag_add("chapter-title", start, end)
             self.text.configure(state="disabled")
             self._pending_char_position = min(max(0, char_position), len(novel.text))
+            self._set_current_chapter(self._chapter_for_char(self._pending_char_position))
             if self.text.winfo_ismapped():
                 self._jump_to_pending_position()
         finally:
@@ -208,6 +227,7 @@ class ReaderApp:
         self.text.mark_set("insert", index)
         self.text.yview(index)
         self.root.update_idletasks()
+        self._update_current_chapter()
 
     def _jump_to_pending_position(self) -> None:
         if self._pending_char_position is None:
@@ -229,6 +249,56 @@ class ReaderApp:
         self._progress_dirty = True
         self.save_current_progress()
 
+    def open_chapter_directory(self) -> None:
+        if self.mode != READ_MODE or self.novel is None:
+            return
+        if self._chapter_directory is not None:
+            self._chapter_directory.focus()
+            return
+        self._update_current_chapter()
+        self._chapter_directory = ChapterDirectory(
+            self.root,
+            self.novel.chapters,
+            self._current_chapter_index,
+            self.jump_to_chapter,
+            self._chapter_directory_closed,
+        )
+
+    def _chapter_directory_closed(self) -> None:
+        self._chapter_directory = None
+
+    def _close_chapter_directory(self) -> None:
+        if self._chapter_directory is None:
+            return
+        directory = self._chapter_directory
+        self._chapter_directory = None
+        directory.close()
+
+    def _set_current_chapter(self, chapter_index: int) -> None:
+        if self.novel is None or not self.novel.chapters:
+            return
+        index = min(max(0, chapter_index), len(self.novel.chapters) - 1)
+        if index == self._current_chapter_index:
+            return
+        self._current_chapter_index = index
+        title = self.novel.chapters[index].title.strip()
+        if len(title) > 38:
+            title = f"{title[:37]}…"
+        self.chapter_button.configure(
+            text=tr("chapter_button", title=title),
+            state="normal",
+        )
+
+    def _update_current_chapter(self) -> None:
+        if self.novel is None:
+            return
+        char_position = (
+            self._pending_char_position
+            if self._pending_char_position is not None
+            else self._top_char_position()
+        )
+        self._set_current_chapter(self._chapter_for_char(char_position))
+
     def _scroll_with_key(self, _event: tk.Event[tk.Misc], direction: int) -> str:
         if self.mode == READ_MODE and self.novel is not None:
             self.text.yview_scroll(direction * self.settings.key_scroll_lines, "units")
@@ -247,6 +317,7 @@ class ReaderApp:
     def _mark_progress_dirty(self) -> None:
         if self._suspend_progress_tracking or self.novel is None:
             return
+        self._update_current_chapter()
         self._progress_dirty = True
         if self._save_after_id is not None:
             self.root.after_cancel(self._save_after_id)
@@ -313,6 +384,7 @@ class ReaderApp:
         self.text.focus_set()
 
     def show_work_mode(self) -> None:
+        self._close_chapter_directory()
         self.save_current_progress()
         self._cancel_read_delay()
         self.mode = WORK_MODE
@@ -340,7 +412,16 @@ class ReaderApp:
     def _pointer_is_inside(self) -> bool:
         x, y = self.root.winfo_pointerx(), self.root.winfo_pointery()
         left, top = self.root.winfo_rootx(), self.root.winfo_rooty()
-        return left <= x < left + self.root.winfo_width() and top <= y < top + self.root.winfo_height()
+        inside_reader = (
+            left <= x < left + self.root.winfo_width()
+            and top <= y < top + self.root.winfo_height()
+        )
+        if inside_reader:
+            return True
+        return (
+            self._chapter_directory is not None
+            and self._chapter_directory.contains_screen_point(x, y)
+        )
 
     def _poll_pointer(self) -> None:
         try:
@@ -365,5 +446,6 @@ class ReaderApp:
             self.show_read_mode()
 
     def close(self) -> None:
+        self._close_chapter_directory()
         self.save_current_progress()
         self.root.destroy()

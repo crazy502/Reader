@@ -16,4 +16,8 @@ MESSAGES = {
     "work_hint": "工作模式（将鼠标移回窗口以继续阅读）",
     "shortcut_hint": "滚轮或 ↑ / ↓ 连续滚动 · Alt+Q 切换工作模式",
     "body_title": "正文",
+    "chapter_navigation": "章节目录",
+    "chapter_button": "{title} ▼",
+    "chapter_directory_title": "章节目录",
+    "chapter_search_label": "搜索章节",
 }

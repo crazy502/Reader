@@ -16,4 +16,8 @@ MESSAGES = {
     "work_hint": "Work mode (move the mouse back to resume reading)",
     "shortcut_hint": "Mouse wheel or ↑ / ↓ to scroll · Alt+Q toggles work mode",
     "body_title": "Body",
+    "chapter_navigation": "Chapters",
+    "chapter_button": "{title} ▼",
+    "chapter_directory_title": "Chapters",
+    "chapter_search_label": "Search chapters",
 }
