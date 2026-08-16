@@ -1,6 +1,6 @@
-# Reader
+# Notebook
 
-Reader 是一个面向 Windows 的轻量 TXT 小说阅读器，使用 Python 标准库和 Tkinter 开发。当前版本采用整本书连续滚动模型，章节只作为识别与导航层，不参与分页。
+Notebook 是一个面向 Windows 的轻量 TXT 小说阅读器，使用 Python 标准库和 Tkinter 开发。当前版本采用整本书连续滚动模型，章节只作为识别与导航层，不参与分页。
 
 ## 环境要求
 
@@ -30,13 +30,13 @@ pytest
 
 ```powershell
 # onedir：便于调试和排查打包问题
-python -m PyInstaller --noconfirm --clean Reader.spec
+python -m PyInstaller --noconfirm --clean Notebook.spec
 
-# onefile：生成可独立复制运行的单文件 Reader.exe
-python -m PyInstaller --noconfirm --clean Reader-onefile.spec
+# onefile：生成可独立复制运行的单文件 Notebook.exe
+python -m PyInstaller --noconfirm --clean Notebook-onefile.spec
 ```
 
-onefile 产物位于 `dist\Reader.exe`。构建配置不会打包 `book/`、`data/`、测试文件或个人用户数据。Windows EXE 已启用 Per-Monitor V2 DPI awareness，并由 PyInstaller 收集运行所需的 Tcl/Tk 资源。
+onefile 产物位于 `dist\Notebook.exe`。构建配置不会打包 `book/`、`data/`、测试文件或个人用户数据。Windows EXE 已启用 Per-Monitor V2 DPI awareness，并由 PyInstaller 收集运行所需的 Tcl/Tk 资源。
 
 ## 已实现功能
 
@@ -72,7 +72,7 @@ PyInstaller frozen EXE 运行时保存在：
 %APPDATA%\Reader\work_note.txt
 ```
 
-小说文件路径、章节索引和当前视口顶部附近的字符位置会写入进度文件；工作便笺独立使用 UTF-8 文本保存。用户数据目录不存在时会自动创建。
+为兼容已有版本，Notebook 继续使用 `%APPDATA%\Reader`，因此升级后原有阅读进度和工作便笺不会丢失。小说文件路径、章节索引和当前视口顶部附近的字符位置会写入进度文件；工作便笺独立使用 UTF-8 文本保存。用户数据目录不存在时会自动创建。
 
 ## 目录结构
 
@@ -82,8 +82,8 @@ Reader/
 ├─ README.md
 ├─ requirements.txt
 ├─ requirements-dev.txt
-├─ Reader.spec
-├─ Reader-onefile.spec
+├─ Notebook.spec
+├─ Notebook-onefile.spec
 ├─ reader/
 │  ├─ app.py
 │  ├─ core/

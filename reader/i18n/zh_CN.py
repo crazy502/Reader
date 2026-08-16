@@ -1,5 +1,5 @@
 MESSAGES = {
-    "app_title": "TXT 小说阅读器",
+    "app_title": "Notebook",
     "open_file": "打开 TXT",
     "file_types": "TXT 文件",
     "all_files": "所有文件",
