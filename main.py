@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from tk_runtime import configure
+from reader.tk_runtime import configure
 
 configure()
 
 import tkinter as tk
 
-from ui import ReaderApp
+from reader.app import ReaderApp
 
 
 def main() -> None:

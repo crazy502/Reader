@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_DIR = Path(__file__).resolve().parent
+APP_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = APP_DIR / "data"
 PROGRESS_FILE = DATA_DIR / "reader_config.json"
 

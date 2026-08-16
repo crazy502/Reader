@@ -6,8 +6,8 @@ from collections.abc import Callable, Sequence
 import tkinter as tk
 import unicodedata
 
-from novel_parser import Chapter
-from src.i18n import tr
+from ..novel_parser import Chapter
+from ..i18n import tr
 
 
 def matching_chapter_indices(chapters: Sequence[Chapter], query: str) -> list[int]:

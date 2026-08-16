@@ -7,11 +7,11 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
-from novel_parser import Novel, NovelLoadError, parse_novel
-from progress import ReadingProgress, load_progress, save_progress
-from src.chapter_navigation import ChapterDirectory
-from src.i18n import tr
+from .config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
+from .novel_parser import Novel, NovelLoadError, parse_novel
+from .progress import ReadingProgress, load_progress, save_progress
+from .ui.chapter_navigation import ChapterDirectory
+from .i18n import tr
 
 
 READ_MODE = "read"
