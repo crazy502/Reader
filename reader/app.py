@@ -6,9 +6,10 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from .core.config import DEFAULT_SETTINGS, PROGRESS_FILE, ReaderSettings
+from .core.config import DEFAULT_SETTINGS, PROGRESS_FILE, WORK_NOTE_FILE, ReaderSettings
 from .core.novel_parser import Novel, NovelLoadError, parse_novel
 from .core.progress import ReadingProgress, load_progress, save_progress
+from .core.work_note import load_work_note, save_work_note as persist_work_note
 from .ui.chapter_navigation import ChapterDirectory, chapter_index_for_position
 from .ui.reader_view import ReaderView
 from .ui.work_view import WorkView
@@ -27,11 +28,14 @@ class ReaderApp:
         self.settings = settings
         self.novel: Novel | None = None
         self.mode = WORK_MODE
+        self.hover_reading_enabled = False
         self._read_after_id: str | None = None
         self._save_after_id: str | None = None
+        self._work_note_save_after_id: str | None = None
         self._pointer_inside: bool | None = None
         self._suspend_progress_tracking = False
         self._progress_dirty = False
+        self._work_note_dirty = False
         self._chapter_starts: tuple[int, ...] = ()
         self._current_chapter_index = -1
         self._chapter_directory: ChapterDirectory | None = None
@@ -61,7 +65,17 @@ class ReaderApp:
             self.open_chapter_directory,
             self._scrollbar_command,
         )
-        self.work_view = WorkView(self.container, self.settings)
+        self.work_view = WorkView(
+            self.container,
+            self.settings,
+            self._on_work_note_changed,
+            self.enable_hover_reading,
+        )
+        note_exists = WORK_NOTE_FILE.is_file()
+        note = load_work_note(WORK_NOTE_FILE, tr("work_default_note"))
+        self.work_view.set_note(note)
+        if not note_exists:
+            persist_work_note(WORK_NOTE_FILE, note)
 
     def _bind_events(self) -> None:
         self.reader_view.bind_reading_events(
@@ -188,11 +202,12 @@ class ReaderApp:
         )
         self._set_current_chapter(self._chapter_for_char(char_position))
 
-    def _scroll_with_key(self, _event: tk.Event[tk.Misc], direction: int) -> str:
+    def _scroll_with_key(self, _event: tk.Event[tk.Misc], direction: int) -> str | None:
         if self.mode == READ_MODE and self.novel is not None:
             self.reader_view.scroll_lines(direction * self.settings.key_scroll_lines)
             self._mark_progress_dirty()
-        return "break"
+            return "break"
+        return None
 
     def _on_mouse_wheel_activity(self, _event: tk.Event[tk.Misc]) -> None:
         if self.mode == READ_MODE and self.novel is not None:
@@ -245,6 +260,39 @@ class ReaderApp:
         )
         self._progress_dirty = False
 
+    def _on_work_note_changed(self) -> None:
+        self._work_note_dirty = True
+        if self._work_note_save_after_id is not None:
+            self.root.after_cancel(self._work_note_save_after_id)
+        self._work_note_save_after_id = self.root.after(
+            self.settings.work_note_save_delay_ms,
+            self._save_debounced_work_note,
+        )
+
+    def _save_debounced_work_note(self) -> None:
+        self._work_note_save_after_id = None
+        if self._work_note_dirty:
+            self.save_work_note()
+
+    def save_work_note(self) -> None:
+        if self._work_note_save_after_id is not None:
+            self.root.after_cancel(self._work_note_save_after_id)
+            self._work_note_save_after_id = None
+        if persist_work_note(WORK_NOTE_FILE, self.work_view.get_note()):
+            self._work_note_dirty = False
+        else:
+            self._work_note_dirty = True
+
+    def enable_hover_reading(self) -> None:
+        self.save_work_note()
+        self.hover_reading_enabled = True
+        inside = self._pointer_is_inside()
+        self._pointer_inside = inside
+        if inside:
+            self.show_read_mode()
+        else:
+            self.show_work_mode()
+
     def restore_last_progress(self) -> None:
         saved = load_progress(PROGRESS_FILE)
         if saved is None or not Path(saved.file_path).is_file():
@@ -253,7 +301,7 @@ class ReaderApp:
         if novel is None:
             return
         self._install_novel(novel, saved.char_position)
-        if self._pointer_is_inside():
+        if self.hover_reading_enabled and self._pointer_is_inside():
             self.show_read_mode()
         else:
             self.show_work_mode()
@@ -273,17 +321,16 @@ class ReaderApp:
         self._cancel_read_delay()
         self.mode = WORK_MODE
         self.reader_view.hide_body()
-        if self.novel is not None:
-            self.reader_view.hide_toolbar()
+        self.reader_view.hide_toolbar()
         self.work_view.show()
+        if not self.hover_reading_enabled:
+            self.work_view.focus()
 
     def _boss_key(self, _event: tk.Event[tk.Misc]) -> str:
         try:
-            if self.mode == READ_MODE:
-                self.show_work_mode()
-            elif self.novel is not None and self._pointer_is_inside():
-                self.save_current_progress()
-                self.show_read_mode()
+            self.hover_reading_enabled = False
+            self.save_work_note()
+            self.show_work_mode()
         except tk.TclError:
             self.show_work_mode()
         return "break"
@@ -310,26 +357,32 @@ class ReaderApp:
     def _poll_pointer(self) -> None:
         try:
             inside = self._pointer_is_inside()
-            if inside != self._pointer_inside:
-                self._pointer_inside = inside
+            changed = inside != self._pointer_inside
+            self._pointer_inside = inside
+            if self.hover_reading_enabled and changed:
                 if inside:
                     self._schedule_read_mode()
                 else:
                     self.show_work_mode()
+            elif not self.hover_reading_enabled:
+                self._cancel_read_delay()
             self.root.after(120, self._poll_pointer)
         except tk.TclError:
             return
 
     def _schedule_read_mode(self) -> None:
         self._cancel_read_delay()
+        if not self.hover_reading_enabled:
+            return
         self._read_after_id = self.root.after(self.settings.read_mode_delay_ms, self._read_if_inside)
 
     def _read_if_inside(self) -> None:
         self._read_after_id = None
-        if self._pointer_inside and self.novel is not None:
+        if self.hover_reading_enabled and self._pointer_inside:
             self.show_read_mode()
 
     def close(self) -> None:
         self._close_chapter_directory()
+        self.save_work_note()
         self.save_current_progress()
         self.root.destroy()

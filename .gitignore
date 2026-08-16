@@ -17,6 +17,7 @@ env/
 
 # Reader runtime data
 data/reader_config.json
+data/work_note.txt
 
 # Build output
 build/

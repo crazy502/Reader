@@ -60,6 +60,7 @@ def ensure_user_data_dir(directory: Path | None = None) -> Path:
 RESOURCE_ROOT = resolve_resource_root()
 USER_DATA_DIR = ensure_user_data_dir()
 PROGRESS_FILE = USER_DATA_DIR / "reader_config.json"
+WORK_NOTE_FILE = USER_DATA_DIR / "work_note.txt"
 
 
 @dataclass(frozen=True)
@@ -90,8 +91,15 @@ class ReaderSettings:
     chapter_list_foreground_color: str = CHAPTER_LIST_FG
     scrollbar_trough_color: str = SCROLLBAR_TROUGH
     scrollbar_thumb_color: str = SCROLLBAR_THUMB
-    work_background_color: str = BODY_BG
-    work_foreground_color: str = BODY_FG
+    work_font_family: str = "Microsoft YaHei UI"
+    work_font_size: int = 10
+    work_background_color: str = "#FFFFFF"
+    work_foreground_color: str = "#1F1F1F"
+    work_toolbar_background_color: str = "#F3F3F3"
+    work_secondary_foreground_color: str = "#666666"
+    work_border_color: str = "#D9D9D9"
+    work_button_hover_color: str = "#E5E5E5"
+    work_note_save_delay_ms: int = 700
     read_mode_delay_ms: int = 400
     progress_save_delay_ms: int = 700
     key_scroll_lines: int = 3
