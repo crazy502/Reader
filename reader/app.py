@@ -6,9 +6,21 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from .core.config import DEFAULT_SETTINGS, PROGRESS_FILE, WORK_NOTE_FILE, ReaderSettings
+from .core.config import (
+    DEFAULT_SETTINGS,
+    PROGRESS_FILE,
+    WORK_NOTE_FILE,
+    ReaderSettings,
+    normalize_reading_theme,
+)
 from .core.novel_parser import Novel, NovelLoadError
-from .core.progress import ReadingProgress, load_progress, save_progress
+from .core.progress import (
+    ReadingProgress,
+    load_progress,
+    load_reading_theme,
+    save_progress,
+    save_reading_theme,
+)
 from .core.work_note import load_work_note, save_work_note as persist_work_note
 from .loaders import load_novel
 from .ui.chapter_navigation import ChapterDirectory, chapter_index_for_position
@@ -27,6 +39,7 @@ class ReaderApp:
     def __init__(self, root: tk.Tk, settings: ReaderSettings = DEFAULT_SETTINGS) -> None:
         self.root = root
         self.settings = settings
+        self.reading_theme = load_reading_theme(PROGRESS_FILE)
         self.novel: Novel | None = None
         self.mode = WORK_MODE
         self.hover_reading_enabled = False
@@ -65,6 +78,8 @@ class ReaderApp:
             self.choose_file,
             self.open_chapter_directory,
             self._scrollbar_command,
+            self.reading_theme,
+            self.set_reading_theme,
         )
         self.work_view = WorkView(
             self.container,
@@ -222,6 +237,12 @@ class ReaderApp:
         self.reader_view.scroll(*arguments)
         self._mark_progress_dirty()
 
+    def set_reading_theme(self, theme_name: str) -> None:
+        """Apply and persist one global ReaderView color theme."""
+        self.reading_theme = normalize_reading_theme(theme_name)
+        self.reader_view.apply_reading_theme(self.reading_theme)
+        save_reading_theme(PROGRESS_FILE, self.reading_theme)
+
     def _mark_progress_dirty(self) -> None:
         if self._suspend_progress_tracking or self.novel is None:
             return
@@ -261,6 +282,7 @@ class ReaderApp:
                 chapter_index=self._chapter_for_char(char_position),
                 char_position=char_position,
             ),
+            reading_theme=self.reading_theme,
         )
         self._progress_dirty = False
 

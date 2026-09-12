@@ -5,7 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 import tkinter as tk
 
-from ..core.config import ReaderSettings
+from ..core.config import (
+    READING_THEMES,
+    ReaderSettings,
+    get_reading_theme,
+    normalize_reading_theme,
+)
 from ..core.novel_parser import Novel
 from ..i18n import tr
 
@@ -20,6 +25,8 @@ class ReaderView:
         on_open_file: Callable[[], None],
         on_open_chapters: Callable[[], None],
         on_scrollbar: Callable[..., None],
+        reading_theme: str,
+        on_reading_theme_changed: Callable[[str], None],
     ) -> None:
         self.settings = settings
 
@@ -56,6 +63,30 @@ class ReaderView:
             state="disabled",
         )
         self.chapter_button.pack(side="left", padx=(12, 0))
+        self._reading_theme = tk.StringVar(value=normalize_reading_theme(reading_theme))
+        self.theme_button = tk.Menubutton(
+            self.toolbar,
+            text=tr("reading_theme"),
+            relief="flat",
+            borderwidth=0,
+            background=settings.button_background_color,
+            activebackground=settings.button_hover_background_color,
+            foreground=settings.button_foreground_color,
+            activeforeground=settings.button_foreground_color,
+            highlightbackground=settings.border_color,
+            highlightcolor=settings.border_color,
+            font=(settings.ui_font_family, 10),
+        )
+        theme_menu = tk.Menu(self.theme_button, tearoff=False)
+        for theme_name in READING_THEMES:
+            theme_menu.add_radiobutton(
+                label=tr(f"reading_theme_{theme_name}"),
+                value=theme_name,
+                variable=self._reading_theme,
+                command=lambda selected=theme_name: on_reading_theme_changed(selected),
+            )
+        self.theme_button.configure(menu=theme_menu)
+        self.theme_button.pack(side="left", padx=(12, 0))
         self.status = tk.Label(
             self.toolbar,
             text=tr("status_no_book"),
@@ -67,10 +98,10 @@ class ReaderView:
         self.status.pack(side="right", fill="x", expand=True, padx=(16, 0))
 
         self.frame = tk.Frame(parent, background=settings.background_color)
-        text_frame = tk.Frame(self.frame, background=settings.background_color)
-        text_frame.pack(fill="both", expand=True, pady=(12, 0))
+        self.text_frame = tk.Frame(self.frame, background=settings.background_color)
+        self.text_frame.pack(fill="both", expand=True, pady=(12, 0))
         self.scrollbar = tk.Scrollbar(
-            text_frame,
+            self.text_frame,
             orient="vertical",
             command=on_scrollbar,
             background=settings.scrollbar_thumb_color,
@@ -81,7 +112,7 @@ class ReaderView:
         )
         self.scrollbar.pack(side="right", fill="y")
         self.text = tk.Text(
-            text_frame,
+            self.text_frame,
             wrap="word",
             relief="flat",
             borderwidth=0,
@@ -104,7 +135,7 @@ class ReaderView:
             spacing1=12,
             spacing3=12,
         )
-        hint_label = tk.Label(
+        self.hint_label = tk.Label(
             self.frame,
             text=tr("shortcut_hint"),
             anchor="w",
@@ -112,7 +143,20 @@ class ReaderView:
             foreground=settings.secondary_foreground_color,
             font=(settings.ui_font_family, 9),
         )
-        hint_label.pack(fill="x", padx=settings.padding_x, pady=(6, 10))
+        self.hint_label.pack(fill="x", padx=settings.padding_x, pady=(6, 10))
+        self.apply_reading_theme(reading_theme)
+
+    def apply_reading_theme(self, theme_name: str) -> None:
+        """Apply a fixed color pair only to the continuous reading surface."""
+        normalized = normalize_reading_theme(theme_name)
+        theme = get_reading_theme(normalized)
+        self._reading_theme.set(normalized)
+        self.frame.configure(background=theme.background)
+        self.text_frame.configure(background=theme.background)
+        self.text.configure(background=theme.background, foreground=theme.foreground)
+        self.text.tag_configure("chapter-title", foreground=theme.foreground)
+        self.hint_label.configure(background=theme.background)
+        self.scrollbar.configure(troughcolor=theme.background)
 
     def bind_reading_events(
         self,

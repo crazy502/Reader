@@ -20,4 +20,10 @@ MESSAGES = {
     "chapter_directory_title": "Chapters",
     "chapter_search_label": "Search chapters",
     "epub_fallback_chapter": "Chapter {index}",
+    "reading_theme": "Theme",
+    "reading_theme_classic": "Classic",
+    "reading_theme_white": "White",
+    "reading_theme_eye_care": "Eye care",
+    "reading_theme_parchment": "Parchment",
+    "reading_theme_light_gray": "Light gray",
 }

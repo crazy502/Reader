@@ -34,3 +34,23 @@ def test_frozen_resource_root_prefers_pyinstaller_bundle(monkeypatch, tmp_path: 
     monkeypatch.setattr(config.sys, "_MEIPASS", str(tmp_path), raising=False)
 
     assert config.resolve_resource_root() == tmp_path
+
+
+def test_reading_themes_match_the_fixed_palette() -> None:
+    assert config.DEFAULT_READING_THEME == "classic"
+    assert {
+        name: (theme.background, theme.foreground)
+        for name, theme in config.READING_THEMES.items()
+    } == {
+        "classic": ("#F6F1E7", "#2B2A28"),
+        "white": ("#FFFFFF", "#222222"),
+        "eye_care": ("#EAF4DF", "#2A2A2A"),
+        "parchment": ("#F3E7C9", "#3A3026"),
+        "light_gray": ("#F3F3F3", "#222222"),
+    }
+
+
+def test_invalid_reading_theme_falls_back_to_classic() -> None:
+    assert config.normalize_reading_theme(None) == "classic"
+    assert config.normalize_reading_theme("unknown") == "classic"
+    assert config.normalize_reading_theme("white") == "white"

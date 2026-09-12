@@ -20,4 +20,10 @@ MESSAGES = {
     "chapter_directory_title": "章节目录",
     "chapter_search_label": "搜索章节",
     "epub_fallback_chapter": "第{index}章",
+    "reading_theme": "主题",
+    "reading_theme_classic": "经典",
+    "reading_theme_white": "白色",
+    "reading_theme_eye_care": "护眼",
+    "reading_theme_parchment": "羊皮纸",
+    "reading_theme_light_gray": "浅灰",
 }

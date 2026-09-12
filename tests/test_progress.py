@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from reader.core.progress import ReadingProgress, load_progress, save_progress
+from reader.core.progress import (
+    ReadingProgress,
+    load_progress,
+    load_reading_theme,
+    save_progress,
+    save_reading_theme,
+)
 
 
 def test_progress_round_trip_preserves_all_fields(tmp_path: Path) -> None:
@@ -23,6 +29,7 @@ def test_progress_round_trip_preserves_all_fields(tmp_path: Path) -> None:
         "file_path": progress.file_path,
         "chapter_index": 14,
         "char_position": 183742,
+        "reading_theme": "classic",
     }
 
 
@@ -53,6 +60,70 @@ def test_legacy_page_index_is_ignored(tmp_path: Path) -> None:
     )
 
     assert load_progress(target) == ReadingProgress("C:/Books/Novel.txt", 7, 900)
+
+
+def test_missing_or_invalid_theme_uses_classic(tmp_path: Path) -> None:
+    target = tmp_path / "reader_config.json"
+
+    assert load_reading_theme(target) == "classic"
+
+    target.write_text('{"reading_theme": "invalid"}', encoding="utf-8")
+    assert load_reading_theme(target) == "classic"
+
+
+def test_progress_save_preserves_existing_theme(tmp_path: Path) -> None:
+    target = tmp_path / "reader_config.json"
+    target.write_text(
+        json.dumps(
+            {
+                "file_path": "C:/Books/Old.txt",
+                "chapter_index": 1,
+                "char_position": 20,
+                "reading_theme": "eye_care",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    progress = ReadingProgress("C:/Books/New.epub", 8, 2048)
+    save_progress(target, progress)
+
+    assert load_progress(target) == progress
+    assert load_reading_theme(target) == "eye_care"
+
+
+def test_theme_save_preserves_existing_progress(tmp_path: Path) -> None:
+    target = tmp_path / "reader_config.json"
+    progress = ReadingProgress("C:/Books/Novel.txt", 4, 512)
+    save_progress(target, progress)
+
+    save_reading_theme(target, "parchment")
+
+    assert load_progress(target) == progress
+    assert load_reading_theme(target) == "parchment"
+
+
+def test_theme_can_be_saved_without_an_open_book(tmp_path: Path) -> None:
+    target = tmp_path / "reader_config.json"
+
+    save_reading_theme(target, "white")
+
+    assert load_progress(target) is None
+    assert load_reading_theme(target) == "white"
+    assert json.loads(target.read_text(encoding="utf-8")) == {
+        "reading_theme": "white"
+    }
+
+
+def test_explicit_theme_is_kept_when_progress_is_first_added(tmp_path: Path) -> None:
+    target = tmp_path / "reader_config.json"
+    save_reading_theme(target, "light_gray")
+
+    progress = ReadingProgress("C:/Books/Novel.epub", 3, 256)
+    save_progress(target, progress, reading_theme="light_gray")
+
+    assert load_progress(target) == progress
+    assert load_reading_theme(target) == "light_gray"
 
 
 def test_save_uses_atomic_replace_and_leaves_no_temp_file(
