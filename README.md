@@ -1,6 +1,6 @@
 # Notebook
 
-Notebook 是一个面向 Windows 的轻量 TXT 小说阅读器，使用 Python 标准库和 Tkinter 开发。当前版本采用整本书连续滚动模型，章节只作为识别与导航层，不参与分页。
+Notebook 是一个面向 Windows 的轻量 TXT / EPUB 小说阅读器，使用 Python 标准库和 Tkinter 开发。当前版本采用整本书连续滚动模型，章节只作为识别与导航层，不参与分页。
 
 ## 环境要求
 
@@ -41,7 +41,9 @@ onefile 产物位于 `dist\Notebook.exe`。构建配置不会打包 `book/`、`d
 ## 已实现功能
 
 - TXT 编码兼容：UTF-8、UTF-8-SIG、GBK、GB18030
-- 整本 TXT 在一个 Tkinter Text 中连续显示和自然换行
+- EPUB 2 / EPUB 3：按 OPF spine 顺序读取正文，并优先使用 NCX/nav 章节标题
+- EPUB 转换为连续纯文本阅读，忽略图片和原始 CSS 排版
+- 整本书在一个 Tkinter Text 中连续显示和自然换行
 - 鼠标滚轮连续滚动，↑ / ↓ 每次辅助滚动少量行
 - 中文章节识别：章、节、卷、回、篇等
 - 英文章节识别：`Chapter 1` 等
@@ -91,6 +93,9 @@ Reader/
 │  │  ├─ novel_parser.py
 │  │  ├─ progress.py
 │  │  └─ work_note.py
+│  ├─ loaders/
+│  │  ├─ __init__.py
+│  │  └─ epub_loader.py
 │  ├─ ui/
 │  │  ├─ reader_view.py
 │  │  ├─ chapter_navigation.py
@@ -108,7 +113,9 @@ Reader/
 
 ## 已知限制
 
-- 当前只支持 TXT，不支持 EPUB
+- 不支持 DRM 加密 EPUB，也不支持 MOBI、AZW3
+- EPUB 暂不还原 CSS、图片、字体、复杂脚注、多栏或固定版式
+- 非规范 EPUB 或同一 XHTML 内包含复杂目录锚点时，章节可能回退为文档级划分
 - 没有书架、书签、全文搜索、阅读统计或云同步
 - `Alt+Q` 是应用内快捷键，不是系统全局快捷键
 - 没有系统托盘和主题/字体设置界面
@@ -117,4 +124,4 @@ Reader/
 
 ## Future
 
-后续可在真实需求出现后增加 EPUB、最近阅读或书架功能；当前 Release 基线不包含这些能力。
+后续可在真实需求出现后增加最近阅读或书架功能；当前版本不包含这些能力。

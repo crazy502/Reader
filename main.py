@@ -1,4 +1,4 @@
-"""Windows TXT novel reader MVP entry point."""
+"""Windows Notebook reader entry point."""
 
 from __future__ import annotations
 

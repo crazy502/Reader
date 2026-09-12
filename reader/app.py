@@ -1,4 +1,4 @@
-"""Tkinter UI for continuous TXT reading and work-mode switching."""
+"""Tkinter UI for continuous novel reading and work-mode switching."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 from .core.config import DEFAULT_SETTINGS, PROGRESS_FILE, WORK_NOTE_FILE, ReaderSettings
-from .core.novel_parser import Novel, NovelLoadError, parse_novel
+from .core.novel_parser import Novel, NovelLoadError
 from .core.progress import ReadingProgress, load_progress, save_progress
 from .core.work_note import load_work_note, save_work_note as persist_work_note
+from .loaders import load_novel
 from .ui.chapter_navigation import ChapterDirectory, chapter_index_for_position
 from .ui.reader_view import ReaderView
 from .ui.work_view import WorkView
@@ -89,7 +90,10 @@ class ReaderApp:
     def choose_file(self) -> None:
         selected = filedialog.askopenfilename(
             title=tr("open_file"),
-            filetypes=[(tr("file_types"), "*.txt"), (tr("all_files"), "*.*")],
+            filetypes=[
+                (tr("file_types"), "*.txt *.epub"),
+                (tr("all_files"), "*.*"),
+            ],
         )
         if selected:
             self.open_novel(Path(selected))
@@ -106,7 +110,7 @@ class ReaderApp:
 
     def _parse_path(self, path: Path) -> Novel | None:
         try:
-            novel = parse_novel(path)
+            novel = load_novel(path)
             if not any(chapter.content.strip() for chapter in novel.chapters):
                 messagebox.showwarning(tr("empty_file_title"), tr("empty_file"), parent=self.root)
                 return None
