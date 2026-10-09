@@ -51,7 +51,11 @@ onefile 产物位于 `dist\Notebook.exe`。构建配置不会打包 `book/`、`d
 - 顶部显示当前章节，滚动越过章节边界时自动更新
 - 临时章节目录、当前章节定位、数字和标题关键词搜索
 - 点击章节后跳转到章节标题附近并立即保存进度
-- 以全文 `char_position` 为核心保存和恢复阅读位置
+- 打开过的 TXT / EPUB 自动加入轻量书架，每本书独立保存阅读位置
+- 书架以响应式文字封面卡片展示，按最近阅读排序并显示阅读百分比与当前章节
+- 单击封面继续阅读，右键或“⋯”可修改显示书名、重新定位文件以及只移除书架记录
+- 原文件丢失时保留封面记录，并在卡片上提供明确的重新定位入口
+- 以每本书的全文 `char_position` 为核心保存和恢复阅读位置
 - 滚动停止约 700ms 后防抖保存
 - WORK_MODE 提供可编辑的本地工作便笺，停止输入约 700ms 后自动保存
 - WORK_MODE 底部保留“启用悬停阅读”入口，编辑区会随窗口大小伸缩
@@ -65,6 +69,7 @@ onefile 产物位于 `dist\Notebook.exe`。构建配置不会打包 `book/`、`d
 
 ```text
 <项目目录>\data\reader_config.json
+<项目目录>\data\bookshelf.json
 <项目目录>\data\work_note.txt
 ```
 
@@ -72,10 +77,11 @@ PyInstaller frozen EXE 运行时保存在：
 
 ```text
 %APPDATA%\Reader\reader_config.json
+%APPDATA%\Reader\bookshelf.json
 %APPDATA%\Reader\work_note.txt
 ```
 
-为兼容已有版本，Notebook 继续使用 `%APPDATA%\Reader`，因此升级后原有阅读进度和工作便笺不会丢失。小说文件路径、章节索引、当前视口顶部附近的字符位置和全局阅读主题会写入进度文件；工作便笺独立使用 UTF-8 文本保存。旧配置没有主题字段时继续使用原来的经典暖纸张配色。用户数据目录不存在时会自动创建。
+为兼容已有版本，Notebook 继续使用 `%APPDATA%\Reader`。`reader_config.json` 只负责全局阅读主题；`bookshelf.json` 是当前书籍及每本书阅读进度的唯一数据源；工作便笺独立使用 UTF-8 文本保存。首次升级时会把旧配置中的最后一本书及其 `chapter_index / char_position` 幂等迁移到书架，迁移后不再向旧进度字段写入新位置。旧配置没有主题字段时继续使用原来的经典暖纸张配色。用户数据目录不存在时会自动创建。
 
 ## 目录结构
 
@@ -90,6 +96,7 @@ Reader/
 ├─ reader/
 │  ├─ app.py
 │  ├─ core/
+│  │  ├─ bookshelf.py
 │  │  ├─ config.py
 │  │  ├─ novel_parser.py
 │  │  ├─ progress.py
@@ -98,6 +105,7 @@ Reader/
 │  │  ├─ __init__.py
 │  │  └─ epub_loader.py
 │  ├─ ui/
+│  │  ├─ bookshelf.py
 │  │  ├─ reader_view.py
 │  │  ├─ chapter_navigation.py
 │  │  └─ work_view.py
@@ -117,7 +125,8 @@ Reader/
 - 不支持 DRM 加密 EPUB，也不支持 MOBI、AZW3
 - EPUB 暂不还原 CSS、图片、字体、复杂脚注、多栏或固定版式
 - 非规范 EPUB 或同一 XHTML 内包含复杂目录锚点时，章节可能回退为文档级划分
-- 没有书架、书签、全文搜索、阅读统计或云同步
+- 书架不含真实封面图片、分类、标签、全文搜索、阅读统计或云同步
+- 文件移动后需要在书架中手动执行“重新定位”，且第一版要求新文件格式与原记录一致
 - `Alt+Q` 是应用内快捷键，不是系统全局快捷键
 - 没有系统托盘和主题/字体设置界面
 - 整本小说一次性加载到 Text，极端超大文件可能占用较多内存
@@ -125,4 +134,4 @@ Reader/
 
 ## Future
 
-后续可在真实需求出现后增加最近阅读或书架功能；当前版本不包含这些能力。
+后续可在真实需求出现后增加书签等能力；当前书架保持轻量，不包含复杂图书管理功能。

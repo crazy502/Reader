@@ -4,9 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 
+from .core.bookshelf import (
+    BookFormatMismatchError,
+    BookshelfError,
+    BookshelfState,
+    DuplicateBookPathError,
+    books_by_recent_activity,
+    load_bookshelf,
+    migrate_legacy_progress,
+    save_bookshelf,
+)
 from .core.config import (
+    BOOKSHELF_FILE,
     DEFAULT_SETTINGS,
     PROGRESS_FILE,
     WORK_NOTE_FILE,
@@ -15,14 +26,13 @@ from .core.config import (
 )
 from .core.novel_parser import Novel, NovelLoadError
 from .core.progress import (
-    ReadingProgress,
     load_progress,
     load_reading_theme,
-    save_progress,
     save_reading_theme,
 )
 from .core.work_note import load_work_note, save_work_note as persist_work_note
 from .loaders import load_novel
+from .ui.bookshelf import BookshelfWindow
 from .ui.chapter_navigation import ChapterDirectory, chapter_index_for_position
 from .ui.reader_view import ReaderView
 from .ui.work_view import WorkView
@@ -40,6 +50,9 @@ class ReaderApp:
         self.root = root
         self.settings = settings
         self.reading_theme = load_reading_theme(PROGRESS_FILE)
+        self.bookshelf: BookshelfState = load_bookshelf(BOOKSHELF_FILE)
+        if migrate_legacy_progress(self.bookshelf, load_progress(PROGRESS_FILE)):
+            save_bookshelf(BOOKSHELF_FILE, self.bookshelf)
         self.novel: Novel | None = None
         self.mode = WORK_MODE
         self.hover_reading_enabled = False
@@ -53,6 +66,7 @@ class ReaderApp:
         self._chapter_starts: tuple[int, ...] = ()
         self._current_chapter_index = -1
         self._chapter_directory: ChapterDirectory | None = None
+        self._bookshelf_window: BookshelfWindow | None = None
         self._pending_char_position: int | None = None
         self._build_window()
         self._build_widgets()
@@ -76,6 +90,7 @@ class ReaderApp:
             self.container,
             self.settings,
             self.choose_file,
+            self.open_bookshelf,
             self.open_chapter_directory,
             self._scrollbar_command,
             self.reading_theme,
@@ -114,11 +129,26 @@ class ReaderApp:
             self.open_novel(Path(selected))
 
     def open_novel(self, path: Path) -> bool:
+        return self._open_novel(path)
+
+    def _open_novel(self, path: Path, preferred_book_id: str | None = None) -> bool:
         self.save_current_progress()
         novel = self._parse_path(path)
         if novel is None:
             return False
-        self._install_novel(novel, 0)
+        existing = (
+            self.bookshelf.books.get(preferred_book_id)
+            if preferred_book_id is not None
+            else self.bookshelf.find_by_path(path)
+        )
+        char_position = existing.char_position if existing is not None else 0
+        if existing is None:
+            self.bookshelf.add_or_activate(path)
+        else:
+            self.bookshelf.activate(existing.book_id)
+        save_bookshelf(BOOKSHELF_FILE, self.bookshelf)
+        self._close_bookshelf()
+        self._install_novel(novel, char_position)
         self.show_read_mode()
         self.save_current_progress()
         return True
@@ -180,6 +210,7 @@ class ReaderApp:
     def open_chapter_directory(self) -> None:
         if self.mode != READ_MODE or self.novel is None:
             return
+        self._close_bookshelf()
         if self._chapter_directory is not None:
             self._chapter_directory.focus()
             return
@@ -201,6 +232,125 @@ class ReaderApp:
         directory = self._chapter_directory
         self._chapter_directory = None
         directory.close()
+
+    def open_bookshelf(self) -> None:
+        if self.mode != READ_MODE:
+            return
+        self._close_chapter_directory()
+        if self._bookshelf_window is not None:
+            self._bookshelf_window.focus()
+            return
+        self._bookshelf_window = BookshelfWindow(
+            self.root,
+            self.settings,
+            books_by_recent_activity(self.bookshelf),
+            self.bookshelf.active_book_id,
+            self._continue_from_bookshelf,
+            self._rename_bookshelf_book,
+            self._relocate_bookshelf_book,
+            self._remove_bookshelf_book,
+            self._bookshelf_closed,
+        )
+
+    def _bookshelf_closed(self) -> None:
+        self._bookshelf_window = None
+
+    def _close_bookshelf(self) -> None:
+        if self._bookshelf_window is None:
+            return
+        window = self._bookshelf_window
+        self._bookshelf_window = None
+        window.close()
+
+    def _refresh_bookshelf(self) -> None:
+        if self._bookshelf_window is not None:
+            self._bookshelf_window.refresh(
+                books_by_recent_activity(self.bookshelf),
+                self.bookshelf.active_book_id,
+            )
+
+    def _continue_from_bookshelf(self, book_id: str) -> None:
+        book = self.bookshelf.books.get(book_id)
+        if book is None:
+            return
+        path = Path(book.file_path)
+        if not path.is_file():
+            messagebox.showwarning(
+                tr("bookshelf_missing_title"),
+                tr("bookshelf_missing_message"),
+                parent=self._bookshelf_parent(),
+            )
+            return
+        self._open_novel(path, preferred_book_id=book_id)
+
+    def _rename_bookshelf_book(self, book_id: str) -> None:
+        book = self.bookshelf.books.get(book_id)
+        if book is None:
+            return
+        title = simpledialog.askstring(
+            tr("bookshelf_rename_title"),
+            tr("bookshelf_rename_prompt"),
+            initialvalue=book.display_title,
+            parent=self._bookshelf_parent(),
+        )
+        if title is None or not title.strip():
+            return
+        self.bookshelf.rename(book_id, title)
+        save_bookshelf(BOOKSHELF_FILE, self.bookshelf)
+        self._refresh_bookshelf()
+
+    def _relocate_bookshelf_book(self, book_id: str) -> None:
+        book = self.bookshelf.books.get(book_id)
+        if book is None:
+            return
+        pattern = f"*.{book.file_format}"
+        selected = filedialog.askopenfilename(
+            title=tr("bookshelf_relocate_title"),
+            filetypes=[(book.file_format.upper(), pattern), (tr("all_files"), "*.*")],
+            parent=self._bookshelf_parent(),
+        )
+        if not selected:
+            return
+        try:
+            self.bookshelf.relocate(book_id, Path(selected))
+        except DuplicateBookPathError:
+            messagebox.showwarning(
+                tr("bookshelf_relocate_title"),
+                tr("bookshelf_relocate_duplicate"),
+                parent=self._bookshelf_parent(),
+            )
+            return
+        except (BookFormatMismatchError, BookshelfError):
+            messagebox.showwarning(
+                tr("bookshelf_relocate_title"),
+                tr("bookshelf_relocate_format"),
+                parent=self._bookshelf_parent(),
+            )
+            return
+        save_bookshelf(BOOKSHELF_FILE, self.bookshelf)
+        self._refresh_bookshelf()
+
+    def _remove_bookshelf_book(self, book_id: str) -> None:
+        book = self.bookshelf.books.get(book_id)
+        if book is None:
+            return
+        confirmed = messagebox.askyesno(
+            tr("bookshelf_remove_title"),
+            tr("bookshelf_remove_confirm", title=book.display_title),
+            parent=self._bookshelf_parent(),
+        )
+        if not confirmed:
+            return
+        if self.bookshelf.active_book_id == book_id:
+            self.save_current_progress()
+        self.bookshelf.remove(book_id)
+        save_bookshelf(BOOKSHELF_FILE, self.bookshelf)
+        self._refresh_bookshelf()
+
+    def _bookshelf_parent(self) -> tk.Misc:
+        if self._bookshelf_window is not None:
+            return self._bookshelf_window.window
+        return self.root
 
     def _set_current_chapter(self, chapter_index: int) -> None:
         if self.novel is None or not self.novel.chapters:
@@ -272,19 +422,29 @@ class ReaderApp:
         if self._save_after_id is not None:
             self.root.after_cancel(self._save_after_id)
             self._save_after_id = None
-        if self.novel is None or self._pending_char_position is not None:
+        active_book_id = self.bookshelf.active_book_id
+        if (
+            self.novel is None
+            or self._pending_char_position is not None
+            or active_book_id is None
+        ):
             return
         char_position = self._top_char_position()
-        save_progress(
-            PROGRESS_FILE,
-            ReadingProgress(
-                file_path=str(self.novel.path.resolve()),
-                chapter_index=self._chapter_for_char(char_position),
-                char_position=char_position,
-            ),
-            reading_theme=self.reading_theme,
+        chapter_index = self._chapter_for_char(char_position)
+        chapter_title = (
+            self.novel.chapters[chapter_index].title
+            if self.novel.chapters
+            else ""
         )
-        self._progress_dirty = False
+        updated = self.bookshelf.update_progress(
+            active_book_id,
+            chapter_index=chapter_index,
+            chapter_title=chapter_title,
+            char_position=char_position,
+            text_length=len(self.novel.text),
+        )
+        if updated is not None and save_bookshelf(BOOKSHELF_FILE, self.bookshelf):
+            self._progress_dirty = False
 
     def _on_work_note_changed(self) -> None:
         self._work_note_dirty = True
@@ -320,13 +480,29 @@ class ReaderApp:
             self.show_work_mode()
 
     def restore_last_progress(self) -> None:
-        saved = load_progress(PROGRESS_FILE)
+        active_book_id = self.bookshelf.active_book_id
+        if active_book_id is None:
+            return
+        saved = self.bookshelf.books.get(active_book_id)
         if saved is None or not Path(saved.file_path).is_file():
             return
         novel = self._parse_path(Path(saved.file_path))
         if novel is None:
             return
-        self._install_novel(novel, saved.char_position)
+        restored_position = min(max(0, saved.char_position), len(novel.text))
+        self._install_novel(novel, restored_position)
+        chapter_index = self._chapter_for_char(restored_position)
+        chapter_title = (
+            novel.chapters[chapter_index].title if novel.chapters else ""
+        )
+        self.bookshelf.update_progress(
+            active_book_id,
+            chapter_index=chapter_index,
+            chapter_title=chapter_title,
+            char_position=restored_position,
+            text_length=len(novel.text),
+        )
+        save_bookshelf(BOOKSHELF_FILE, self.bookshelf)
         if self.hover_reading_enabled and self._pointer_is_inside():
             self.show_read_mode()
         else:
@@ -343,6 +519,7 @@ class ReaderApp:
 
     def show_work_mode(self) -> None:
         self._close_chapter_directory()
+        self._close_bookshelf()
         self.save_current_progress()
         self._cancel_read_delay()
         self.mode = WORK_MODE
@@ -375,10 +552,15 @@ class ReaderApp:
         )
         if inside_reader:
             return True
-        return (
+        inside_chapter_directory = (
             self._chapter_directory is not None
             and self._chapter_directory.contains_screen_point(x, y)
         )
+        inside_bookshelf = (
+            self._bookshelf_window is not None
+            and self._bookshelf_window.contains_screen_point(x, y)
+        )
+        return inside_chapter_directory or inside_bookshelf
 
     def _poll_pointer(self) -> None:
         try:
@@ -409,6 +591,7 @@ class ReaderApp:
 
     def close(self) -> None:
         self._close_chapter_directory()
+        self._close_bookshelf()
         self.save_work_note()
         self.save_current_progress()
         self.root.destroy()

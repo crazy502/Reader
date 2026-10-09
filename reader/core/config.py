@@ -91,6 +91,7 @@ def ensure_user_data_dir(directory: Path | None = None) -> Path:
 RESOURCE_ROOT = resolve_resource_root()
 USER_DATA_DIR = ensure_user_data_dir()
 PROGRESS_FILE = USER_DATA_DIR / "reader_config.json"
+BOOKSHELF_FILE = USER_DATA_DIR / "bookshelf.json"
 WORK_NOTE_FILE = USER_DATA_DIR / "work_note.txt"
 
 

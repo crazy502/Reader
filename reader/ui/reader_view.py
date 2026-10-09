@@ -23,6 +23,7 @@ class ReaderView:
         parent: tk.Misc,
         settings: ReaderSettings,
         on_open_file: Callable[[], None],
+        on_open_bookshelf: Callable[[], None],
         on_open_chapters: Callable[[], None],
         on_scrollbar: Callable[..., None],
         reading_theme: str,
@@ -45,6 +46,21 @@ class ReaderView:
             highlightcolor=settings.border_color,
         )
         self.open_button.pack(side="left")
+        self.bookshelf_button = tk.Button(
+            self.toolbar,
+            text=tr("bookshelf"),
+            command=on_open_bookshelf,
+            relief="flat",
+            borderwidth=0,
+            background=settings.button_background_color,
+            activebackground=settings.button_hover_background_color,
+            foreground=settings.button_foreground_color,
+            activeforeground=settings.button_foreground_color,
+            highlightbackground=settings.border_color,
+            highlightcolor=settings.border_color,
+            font=(settings.ui_font_family, 10),
+        )
+        self.bookshelf_button.pack(side="left", padx=(12, 0))
         self.chapter_button = tk.Button(
             self.toolbar,
             text=tr("chapter_navigation"),

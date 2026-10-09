@@ -1,8 +1,8 @@
-"""Crash-tolerant JSON persistence for the last reading location."""
+"""Global settings persistence and read-only legacy progress migration."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
 from pathlib import Path
 import tempfile
@@ -43,24 +43,8 @@ def load_reading_theme(path: Path) -> str:
     return normalize_reading_theme(raw.get(_READING_THEME_KEY))
 
 
-def save_progress(
-    path: Path,
-    progress: ReadingProgress,
-    reading_theme: str | None = None,
-) -> None:
-    """Replace the JSON atomically so an interrupted save leaves the old file valid."""
-    selected_theme = (
-        load_reading_theme(path)
-        if reading_theme is None
-        else normalize_reading_theme(reading_theme)
-    )
-    payload = asdict(progress)
-    payload[_READING_THEME_KEY] = selected_theme
-    _save_config(path, payload)
-
-
 def save_reading_theme(path: Path, reading_theme: str) -> None:
-    """Persist one global theme while retaining any valid progress fields."""
+    """Persist the global theme while leaving legacy migration fields untouched."""
     raw = _load_config(path) or {}
     payload = {key: raw[key] for key in _PROGRESS_KEYS if key in raw}
     payload[_READING_THEME_KEY] = normalize_reading_theme(reading_theme)

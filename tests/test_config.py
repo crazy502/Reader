@@ -9,6 +9,7 @@ def test_development_paths_remain_inside_project() -> None:
     assert config.RESOURCE_ROOT == config.PROJECT_ROOT
     assert config.USER_DATA_DIR == config.PROJECT_ROOT / "data"
     assert config.PROGRESS_FILE == config.USER_DATA_DIR / "reader_config.json"
+    assert config.BOOKSHELF_FILE == config.USER_DATA_DIR / "bookshelf.json"
     assert config.WORK_NOTE_FILE == config.USER_DATA_DIR / "work_note.txt"
 
 
@@ -19,6 +20,7 @@ def test_frozen_user_data_uses_appdata(monkeypatch, tmp_path: Path) -> None:
     user_data_dir = config.resolve_user_data_dir()
 
     assert user_data_dir == tmp_path / "Reader"
+    assert user_data_dir / "bookshelf.json" == tmp_path / "Reader" / "bookshelf.json"
     assert user_data_dir / "work_note.txt" == tmp_path / "Reader" / "work_note.txt"
 
 
