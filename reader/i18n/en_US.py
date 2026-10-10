@@ -28,6 +28,7 @@ MESSAGES = {
     "reading_theme_light_gray": "Light gray",
     "bookshelf": "Bookshelf",
     "bookshelf_title": "My Bookshelf",
+    "bookshelf_add": "+ Add book",
     "bookshelf_rename": "Rename",
     "bookshelf_relocate": "Relocate",
     "bookshelf_remove": "Remove from bookshelf",

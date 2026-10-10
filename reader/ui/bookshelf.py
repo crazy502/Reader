@@ -181,8 +181,8 @@ class BookCard:
         self.frame.destroy()
 
 
-class BookshelfWindow:
-    """Display books as a responsive, scrollable cover grid."""
+class BookshelfPage:
+    """Display books as a persistent page inside the reader window."""
 
     def __init__(
         self,
@@ -190,46 +190,58 @@ class BookshelfWindow:
         settings: ReaderSettings,
         books: Sequence[BookRecord],
         active_book_id: str | None,
+        on_add: Callable[[], None],
         on_continue: Callable[[str], None],
         on_rename: Callable[[str], None],
         on_relocate: Callable[[str], None],
         on_remove: Callable[[str], None],
-        on_close: Callable[[], None],
     ) -> None:
         self._settings = settings
+        self._on_add = on_add
         self._on_continue = on_continue
         self._on_rename = on_rename
         self._on_relocate = on_relocate
         self._on_remove = on_remove
-        self._on_close = on_close
-        self._closed = False
         self._reflow_after_id: str | None = None
         self._cards: dict[str, BookCard] = {}
         self._ordered_book_ids: list[str] = []
         self._column_count = 1
         self._context_menu: tk.Menu | None = None
 
-        self.window = tk.Toplevel(parent)
-        self.window.title(tr("bookshelf_title"))
-        self.window.transient(parent)
-        self.window.configure(background=settings.background_color)
-        self.window.protocol("WM_DELETE_WINDOW", self.close)
-        self.window.bind("<Escape>", lambda _event: self.close())
-        self.window.grid_rowconfigure(1, weight=1)
-        self.window.grid_columnconfigure(0, weight=1)
-        self._place_near_parent(parent)
+        self.frame = tk.Frame(parent, background=settings.background_color)
+        self.frame.grid_rowconfigure(1, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
 
+        header = tk.Frame(
+            self.frame,
+            background=settings.toolbar_background_color,
+        )
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
         heading = tk.Label(
-            self.window,
+            header,
             text=tr("bookshelf_title"),
             anchor="w",
             background=settings.toolbar_background_color,
             foreground=settings.toolbar_foreground_color,
             font=(settings.ui_font_family, 14, "bold"),
         )
-        heading.grid(row=0, column=0, sticky="ew", padx=18, pady=(14, 9))
+        heading.grid(row=0, column=0, sticky="ew", padx=(18, 8), pady=(14, 9))
+        self.add_button = tk.Button(
+            header,
+            text=tr("bookshelf_add"),
+            command=self._on_add,
+            relief="flat",
+            borderwidth=0,
+            background=settings.toolbar_background_color,
+            activebackground=settings.button_hover_background_color,
+            foreground=settings.toolbar_foreground_color,
+            activeforeground=settings.button_foreground_color,
+            font=(settings.ui_font_family, 9),
+        )
+        self.add_button.grid(row=0, column=1, padx=(8, 18), pady=(11, 7))
 
-        shelf_frame = tk.Frame(self.window, background=settings.background_color)
+        shelf_frame = tk.Frame(self.frame, background=settings.background_color)
         shelf_frame.grid(row=1, column=0, sticky="nsew", padx=(10, 7), pady=(0, 12))
         shelf_frame.grid_rowconfigure(0, weight=1)
         shelf_frame.grid_columnconfigure(0, weight=1)
@@ -265,7 +277,7 @@ class BookshelfWindow:
         self._bind_mousewheel(self.content)
 
         self.missing_prompt = tk.Frame(
-            self.window,
+            self.frame,
             background=settings.toolbar_background_color,
             highlightbackground=settings.border_color,
             highlightthickness=1,
@@ -314,8 +326,6 @@ class BookshelfWindow:
         )
 
         self.refresh(books, active_book_id)
-        self.window.grab_set()
-        self.canvas.focus_set()
 
     @property
     def column_count(self) -> int:
@@ -350,43 +360,30 @@ class BookshelfWindow:
         if not self._cards:
             self.empty_label.grid(row=0, column=0, padx=24, pady=70)
         self._reflow_cards()
-        self.window.after_idle(lambda: self.canvas.yview_moveto(scroll_position))
+        self.frame.after_idle(lambda: self.canvas.yview_moveto(scroll_position))
 
     def focus(self) -> None:
-        if self.window.winfo_exists():
-            self.window.deiconify()
-            self.window.lift()
+        if self.frame.winfo_exists():
             self.canvas.focus_set()
 
-    def contains_screen_point(self, x: int, y: int) -> bool:
-        if self._closed or not self.window.winfo_exists():
-            return False
-        left = self.window.winfo_rootx()
-        top = self.window.winfo_rooty()
-        return (
-            left <= x < left + self.window.winfo_width()
-            and top <= y < top + self.window.winfo_height()
-        )
+    def show(self) -> None:
+        self.frame.pack(fill="both", expand=True)
+        self.frame.after_idle(self._reflow_cards)
 
-    def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
+    def hide(self) -> None:
+        self.frame.pack_forget()
+
+    def destroy(self) -> None:
         if self._reflow_after_id is not None:
-            self.window.after_cancel(self._reflow_after_id)
+            self.frame.after_cancel(self._reflow_after_id)
             self._reflow_after_id = None
-        try:
-            if self.window.grab_current() is self.window:
-                self.window.grab_release()
-            self.window.destroy()
-        finally:
-            self._on_close()
+        self.frame.destroy()
 
     def _schedule_reflow(self, event: tk.Event[tk.Misc]) -> None:
         self.canvas.itemconfigure(self._content_window, width=max(1, event.width))
         if self._reflow_after_id is not None:
-            self.window.after_cancel(self._reflow_after_id)
-        self._reflow_after_id = self.window.after(
+            self.frame.after_cancel(self._reflow_after_id)
+        self._reflow_after_id = self.frame.after(
             REFLOW_DELAY_MS, self._reflow_cards
         )
 
@@ -470,7 +467,7 @@ class BookshelfWindow:
         )
 
     def _post_context_menu(self, book_id: str, x: int, y: int) -> None:
-        menu = tk.Menu(self.window, tearoff=False)
+        menu = tk.Menu(self.frame, tearoff=False)
         menu.add_command(
             label=tr("bookshelf_rename"),
             command=lambda: self._on_rename(book_id),
@@ -489,14 +486,3 @@ class BookshelfWindow:
             menu.tk_popup(x, y)
         finally:
             menu.grab_release()
-
-    def _place_near_parent(self, parent: tk.Misc) -> None:
-        parent.update_idletasks()
-        parent_width = max(1, parent.winfo_width())
-        parent_height = max(1, parent.winfo_height())
-        width = min(760, max(440, parent_width - 30))
-        height = min(560, max(320, parent_height - 30))
-        x = parent.winfo_rootx() + max(0, (parent_width - width) // 2)
-        y = parent.winfo_rooty() + max(0, (parent_height - height) // 2)
-        self.window.geometry(f"{width}x{height}+{x}+{y}")
-        self.window.minsize(420, 300)

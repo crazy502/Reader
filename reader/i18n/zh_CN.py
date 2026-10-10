@@ -28,6 +28,7 @@ MESSAGES = {
     "reading_theme_light_gray": "浅灰",
     "bookshelf": "书架",
     "bookshelf_title": "我的书架",
+    "bookshelf_add": "＋ 添加书籍",
     "bookshelf_rename": "修改书名",
     "bookshelf_relocate": "重新定位",
     "bookshelf_remove": "从书架移除",
