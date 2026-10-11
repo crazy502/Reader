@@ -1,0 +1,792 @@
+{
+  "generated_at": "2026-10-11T02:29:36.468Z",
+  "repeats": 1,
+  "books": [
+    {
+      "metadata": {
+        "book_id": "synthetic_120000_47420fa36841",
+        "title": "合成压力测试 120,000 字",
+        "format": "TXT",
+        "path": "F:\\Reader\\experiments\\webview2-poc\\notebook-webview-benchmark-eyeo9ted\\synthetic-120000.txt",
+        "text_length": 120000,
+        "char_position": 0,
+        "chapter_index": 0,
+        "chapter_title": "第1章 合成阅读样本 1",
+        "chapter_count": 24,
+        "chapters": [
+          {
+            "index": 0,
+            "title": "第1章 合成阅读样本 1",
+            "start_char": 0,
+            "end_char": 5078
+          },
+          {
+            "index": 1,
+            "title": "第2章 合成阅读样本 2",
+            "start_char": 5078,
+            "end_char": 10147
+          },
+          {
+            "index": 2,
+            "title": "第3章 合成阅读样本 3",
+            "start_char": 10147,
+            "end_char": 15209
+          },
+          {
+            "index": 3,
+            "title": "第4章 合成阅读样本 4",
+            "start_char": 15209,
+            "end_char": 20229
+          },
+          {
+            "index": 4,
+            "title": "第5章 合成阅读样本 5",
+            "start_char": 20229,
+            "end_char": 25255
+          },
+          {
+            "index": 5,
+            "title": "第6章 合成阅读样本 6",
+            "start_char": 25255,
+            "end_char": 30333
+          },
+          {
+            "index": 6,
+            "title": "第7章 合成阅读样本 7",
+            "start_char": 30333,
+            "end_char": 35402
+          },
+          {
+            "index": 7,
+            "title": "第8章 合成阅读样本 8",
+            "start_char": 35402,
+            "end_char": 40464
+          },
+          {
+            "index": 8,
+            "title": "第9章 合成阅读样本 9",
+            "start_char": 40464,
+            "end_char": 45484
+          },
+          {
+            "index": 9,
+            "title": "第10章 合成阅读样本 10",
+            "start_char": 45484,
+            "end_char": 50512
+          },
+          {
+            "index": 10,
+            "title": "第11章 合成阅读样本 11",
+            "start_char": 50512,
+            "end_char": 55592
+          },
+          {
+            "index": 11,
+            "title": "第12章 合成阅读样本 12",
+            "start_char": 55592,
+            "end_char": 60663
+          },
+          {
+            "index": 12,
+            "title": "第13章 合成阅读样本 13",
+            "start_char": 60663,
+            "end_char": 65727
+          },
+          {
+            "index": 13,
+            "title": "第14章 合成阅读样本 14",
+            "start_char": 65727,
+            "end_char": 70749
+          },
+          {
+            "index": 14,
+            "title": "第15章 合成阅读样本 15",
+            "start_char": 70749,
+            "end_char": 75777
+          },
+          {
+            "index": 15,
+            "title": "第16章 合成阅读样本 16",
+            "start_char": 75777,
+            "end_char": 80857
+          },
+          {
+            "index": 16,
+            "title": "第17章 合成阅读样本 17",
+            "start_char": 80857,
+            "end_char": 85928
+          },
+          {
+            "index": 17,
+            "title": "第18章 合成阅读样本 18",
+            "start_char": 85928,
+            "end_char": 90992
+          },
+          {
+            "index": 18,
+            "title": "第19章 合成阅读样本 19",
+            "start_char": 90992,
+            "end_char": 96014
+          },
+          {
+            "index": 19,
+            "title": "第20章 合成阅读样本 20",
+            "start_char": 96014,
+            "end_char": 101042
+          },
+          {
+            "index": 20,
+            "title": "第21章 合成阅读样本 21",
+            "start_char": 101042,
+            "end_char": 106122
+          },
+          {
+            "index": 21,
+            "title": "第22章 合成阅读样本 22",
+            "start_char": 106122,
+            "end_char": 111193
+          },
+          {
+            "index": 22,
+            "title": "第23章 合成阅读样本 23",
+            "start_char": 111193,
+            "end_char": 116257
+          },
+          {
+            "index": 23,
+            "title": "第24章 合成阅读样本 24",
+            "start_char": 116257,
+            "end_char": 120000
+          }
+        ],
+        "parse_ms": 2.378,
+        "external": true,
+        "parse_runs_ms": [
+          25.221,
+          2.378,
+          2.215
+        ],
+        "parse_median_ms": 2.378,
+        "target_chars": 120000
+      },
+      "strategies": {
+        "whole": {
+          "runs": [
+            {
+              "strategy": "whole",
+              "text_length": 120000,
+              "chapter_count": 24,
+              "fragment_count": 1758,
+              "parse_ms": 2.378,
+              "bridge_roundtrip_ms": 34.200000000186265,
+              "payload_prepare_ms": 4.182,
+              "transfer_and_serialization_estimate_ms": 30.018000000186262,
+              "dom_build_ms": 653.8999999999069,
+              "dom_insert_cpu_ms": 6.7000000001862645,
+              "first_visible_ms": 703.3999999999069,
+              "layout_force_ms": 0,
+              "node_count": 1758,
+              "scroll_height": 198733,
+              "restored_position": 0,
+              "js_heap_before": 1422142,
+              "js_heap_after": 4566486,
+              "js_heap_delta_bytes": 3144344,
+              "process_before": {
+                "available": true,
+                "root_pid": 9352,
+                "process_count": 7,
+                "rss_bytes": 499400704,
+                "python_rss_bytes": 109727744,
+                "child_rss_bytes": 389672960,
+                "cpu_seconds": 4.0625,
+                "processes": [
+                  {
+                    "pid": 6272,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 79724544,
+                    "cpu_seconds": 0.375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8332,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 40665088,
+                    "cpu_seconds": 0.25,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8512,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 119975936,
+                    "cpu_seconds": 1.15625,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 9352,
+                    "name": "python.exe",
+                    "rss_bytes": 109727744,
+                    "cpu_seconds": 1.59375,
+                    "role": "python"
+                  },
+                  {
+                    "pid": 9796,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 10575872,
+                    "cpu_seconds": 0.03125,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 11556,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 21237760,
+                    "cpu_seconds": 0.09375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 18016,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 117493760,
+                    "cpu_seconds": 0.5625,
+                    "role": "child"
+                  }
+                ]
+              },
+              "process_after": {
+                "available": true,
+                "root_pid": 9352,
+                "process_count": 7,
+                "rss_bytes": 564137984,
+                "python_rss_bytes": 112455680,
+                "child_rss_bytes": 451682304,
+                "cpu_seconds": 4.84375,
+                "processes": [
+                  {
+                    "pid": 6272,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 134418432,
+                    "cpu_seconds": 0.90625,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8332,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 41832448,
+                    "cpu_seconds": 0.25,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8512,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 124989440,
+                    "cpu_seconds": 1.34375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 9352,
+                    "name": "python.exe",
+                    "rss_bytes": 112455680,
+                    "cpu_seconds": 1.625,
+                    "role": "python"
+                  },
+                  {
+                    "pid": 9796,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 10575872,
+                    "cpu_seconds": 0.03125,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 11556,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 21250048,
+                    "cpu_seconds": 0.09375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 18016,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 118616064,
+                    "cpu_seconds": 0.59375,
+                    "role": "child"
+                  }
+                ]
+              },
+              "process_delta": {
+                "rss_bytes": 64737280,
+                "python_rss_bytes": 2727936,
+                "child_rss_bytes": 62009344,
+                "cpu_seconds": 0.78125
+              },
+              "position": {
+                "requested": 73200,
+                "first_visible": 73180,
+                "initial_error_chars": 20,
+                "maximum_cycle_drift_chars": 0,
+                "restore_ms": 13.899999999906868
+              },
+              "chapter_jump": {
+                "chapter_jump_ms": 18,
+                "requested": 85928,
+                "actual": 85928,
+                "error_chars": 0
+              },
+              "rapid_scroll": {
+                "samples": [
+                  {
+                    "ratio": 0.2,
+                    "visible_fragments": 6
+                  },
+                  {
+                    "ratio": 0.5,
+                    "visible_fragments": 6
+                  },
+                  {
+                    "ratio": 0.8,
+                    "visible_fragments": 6
+                  },
+                  {
+                    "ratio": 0.96,
+                    "visible_fragments": 6
+                  }
+                ],
+                "blank_samples": 0
+              },
+              "final_process": {
+                "available": true,
+                "root_pid": 9352,
+                "process_count": 7,
+                "rss_bytes": 568946688,
+                "python_rss_bytes": 112521216,
+                "child_rss_bytes": 456425472,
+                "cpu_seconds": 5,
+                "processes": [
+                  {
+                    "pid": 6272,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 138706944,
+                    "cpu_seconds": 0.96875,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8332,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 41832448,
+                    "cpu_seconds": 0.25,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8512,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 125104128,
+                    "cpu_seconds": 1.359375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 9352,
+                    "name": "python.exe",
+                    "rss_bytes": 112521216,
+                    "cpu_seconds": 1.65625,
+                    "role": "python"
+                  },
+                  {
+                    "pid": 9796,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 10575872,
+                    "cpu_seconds": 0.03125,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 11556,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 21250048,
+                    "cpu_seconds": 0.09375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 18016,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 118956032,
+                    "cpu_seconds": 0.640625,
+                    "role": "child"
+                  }
+                ]
+              }
+            }
+          ],
+          "median": {
+            "bridge_roundtrip_ms": 34.200000000186265,
+            "transfer_and_serialization_estimate_ms": 30.018000000186262,
+            "dom_build_ms": 653.8999999999069,
+            "dom_insert_cpu_ms": 6.7000000001862645,
+            "first_visible_ms": 703.3999999999069,
+            "layout_force_ms": 0,
+            "node_count": 1758,
+            "scroll_height": 198733,
+            "js_heap_delta_bytes": 3144344,
+            "process_rss_delta_bytes": 64737280,
+            "process_cpu_delta_seconds": 0.78125,
+            "position_error_chars": 20,
+            "chapter_jump_ms": 18
+          }
+        },
+        "chunked": {
+          "runs": [
+            {
+              "strategy": "chunked",
+              "text_length": 120000,
+              "chapter_count": 24,
+              "fragment_count": 48,
+              "parse_ms": 2.378,
+              "bridge_roundtrip_ms": 18,
+              "payload_prepare_ms": 0.462,
+              "transfer_and_serialization_estimate_ms": 17.538,
+              "dom_build_ms": 532.1000000000931,
+              "dom_insert_cpu_ms": 0.4999999995343387,
+              "first_visible_ms": 291,
+              "layout_force_ms": 0,
+              "node_count": 48,
+              "scroll_height": 199614,
+              "restored_position": 0,
+              "js_heap_before": 5069412,
+              "js_heap_after": 7302183,
+              "js_heap_delta_bytes": 2232771,
+              "process_before": {
+                "available": true,
+                "root_pid": 9352,
+                "process_count": 7,
+                "rss_bytes": 569114624,
+                "python_rss_bytes": 112607232,
+                "child_rss_bytes": 456507392,
+                "cpu_seconds": 5.015625,
+                "processes": [
+                  {
+                    "pid": 6272,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 138788864,
+                    "cpu_seconds": 0.96875,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8332,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 41832448,
+                    "cpu_seconds": 0.25,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8512,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 125104128,
+                    "cpu_seconds": 1.359375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 9352,
+                    "name": "python.exe",
+                    "rss_bytes": 112607232,
+                    "cpu_seconds": 1.671875,
+                    "role": "python"
+                  },
+                  {
+                    "pid": 9796,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 10575872,
+                    "cpu_seconds": 0.03125,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 11556,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 21250048,
+                    "cpu_seconds": 0.09375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 18016,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 118956032,
+                    "cpu_seconds": 0.640625,
+                    "role": "child"
+                  }
+                ]
+              },
+              "process_after": {
+                "available": true,
+                "root_pid": 9352,
+                "process_count": 7,
+                "rss_bytes": 596520960,
+                "python_rss_bytes": 114761728,
+                "child_rss_bytes": 481759232,
+                "cpu_seconds": 5.796875,
+                "processes": [
+                  {
+                    "pid": 6272,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 162324480,
+                    "cpu_seconds": 1.421875,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8332,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 42123264,
+                    "cpu_seconds": 0.25,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8512,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 125304832,
+                    "cpu_seconds": 1.5625,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 9352,
+                    "name": "python.exe",
+                    "rss_bytes": 114761728,
+                    "cpu_seconds": 1.71875,
+                    "role": "python"
+                  },
+                  {
+                    "pid": 9796,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 10575872,
+                    "cpu_seconds": 0.03125,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 11556,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 21250048,
+                    "cpu_seconds": 0.09375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 18016,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 120180736,
+                    "cpu_seconds": 0.71875,
+                    "role": "child"
+                  }
+                ]
+              },
+              "process_delta": {
+                "rss_bytes": 27406336,
+                "python_rss_bytes": 2154496,
+                "child_rss_bytes": 25251840,
+                "cpu_seconds": 0.78125
+              },
+              "position": {
+                "requested": 73200,
+                "first_visible": 73180,
+                "initial_error_chars": 20,
+                "maximum_cycle_drift_chars": 0,
+                "restore_ms": 15.899999999906868
+              },
+              "chapter_jump": {
+                "chapter_jump_ms": 18.200000000186265,
+                "requested": 85928,
+                "actual": 85928,
+                "error_chars": 0
+              },
+              "rapid_scroll": {
+                "samples": [
+                  {
+                    "ratio": 0.2,
+                    "visible_fragments": 1
+                  },
+                  {
+                    "ratio": 0.5,
+                    "visible_fragments": 1
+                  },
+                  {
+                    "ratio": 0.8,
+                    "visible_fragments": 3
+                  },
+                  {
+                    "ratio": 0.96,
+                    "visible_fragments": 1
+                  }
+                ],
+                "blank_samples": 0
+              },
+              "final_process": {
+                "available": true,
+                "root_pid": 9352,
+                "process_count": 7,
+                "rss_bytes": 597172224,
+                "python_rss_bytes": 114782208,
+                "child_rss_bytes": 482390016,
+                "cpu_seconds": 5.984375,
+                "processes": [
+                  {
+                    "pid": 6272,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 163475456,
+                    "cpu_seconds": 1.5,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8332,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 42123264,
+                    "cpu_seconds": 0.25,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 8512,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 125313024,
+                    "cpu_seconds": 1.5625,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 9352,
+                    "name": "python.exe",
+                    "rss_bytes": 114782208,
+                    "cpu_seconds": 1.765625,
+                    "role": "python"
+                  },
+                  {
+                    "pid": 9796,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 10575872,
+                    "cpu_seconds": 0.03125,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 11556,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 21250048,
+                    "cpu_seconds": 0.09375,
+                    "role": "child"
+                  },
+                  {
+                    "pid": 18016,
+                    "name": "msedgewebview2.exe",
+                    "rss_bytes": 119652352,
+                    "cpu_seconds": 0.78125,
+                    "role": "child"
+                  }
+                ]
+              }
+            }
+          ],
+          "median": {
+            "bridge_roundtrip_ms": 18,
+            "transfer_and_serialization_estimate_ms": 17.538,
+            "dom_build_ms": 532.1000000000931,
+            "dom_insert_cpu_ms": 0.4999999995343387,
+            "first_visible_ms": 291,
+            "layout_force_ms": 0,
+            "node_count": 48,
+            "scroll_height": 199614,
+            "js_heap_delta_bytes": 2232771,
+            "process_rss_delta_bytes": 27406336,
+            "process_cpu_delta_seconds": 0.78125,
+            "position_error_chars": 20,
+            "chapter_jump_ms": 18.200000000186265
+          }
+        }
+      }
+    }
+  ],
+  "format_samples": {
+    "generated_samples": true,
+    "books": {
+      "txt": {
+        "format": "TXT",
+        "chapter_count": 3,
+        "chapter_titles": [
+          "第一章 夜雨",
+          "第二章 远行",
+          "第三章 归来"
+        ],
+        "text_length": 169,
+        "dom_code_point_length": 169,
+        "exact_text_length": true,
+        "unicode_markers_present": true,
+        "restored": 73,
+        "restore_error_chars": 19
+      },
+      "epub": {
+        "format": "EPUB",
+        "chapter_count": 3,
+        "chapter_titles": [
+          "第一章 夜雨",
+          "第二章 远行",
+          "第三章 归来"
+        ],
+        "text_length": 170,
+        "dom_code_point_length": 170,
+        "exact_text_length": true,
+        "unicode_markers_present": true,
+        "restored": 74,
+        "restore_error_chars": 19
+      }
+    },
+    "ok": true
+  },
+  "mode_persistence": {
+    "same_dom_node": true,
+    "position_before": 74,
+    "hidden_position": 74,
+    "position_after": 74,
+    "no_zero_overwrite": true,
+    "ok": true
+  },
+  "reflow_stability": {
+    "baseline": 74,
+    "font_size_error_chars": 0,
+    "line_height_error_chars": 0,
+    "theme_error_chars": 0
+  },
+  "independent_books": {
+    "first": {
+      "saved": 27846,
+      "restored": 27811
+    },
+    "second": {
+      "saved": 75892,
+      "restored": 75858
+    },
+    "independent": true
+  },
+  "window_resize_stability": {
+    "anchor": 75858,
+    "checks": [
+      {
+        "window": [
+          730,
+          560
+        ],
+        "requested": 75858,
+        "actual": 75858,
+        "error_chars": 0
+      },
+      {
+        "window": [
+          1000,
+          700
+        ],
+        "requested": 75858,
+        "actual": 75858,
+        "error_chars": 0
+      },
+      {
+        "window": [
+          760,
+          620
+        ],
+        "requested": 75858,
+        "actual": 75858,
+        "error_chars": 0
+      }
+    ]
+  },
+  "renderer": "edgechromium",
+  "webview2_runtime": {
+    "version": "154.0.4258.62",
+    "executable": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\154.0.4258.62\\msedgewebview2.exe"
+  }
+}

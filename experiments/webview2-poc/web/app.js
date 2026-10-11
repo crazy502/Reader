@@ -128,6 +128,7 @@
     toastTimer: null,
     scrollFrame: null,
     addedCount: 0,
+    externalAdapter: null,
   };
 
   const elements = {
@@ -189,6 +190,14 @@
 
   function chapterLabel(index) {
     return `第${toChineseNumber(index + 1)}章 · ${chapterTitles[index]}`;
+  }
+
+  function displayChapterLabel(book, index) {
+    if (book?.external && Array.isArray(book.chapters) && book.chapters.length) {
+      const chapter = book.chapters[clamp(index, 0, book.chapters.length - 1)];
+      return chapter.title;
+    }
+    return chapterLabel(clamp(index, 0, chapterTitles.length - 1));
   }
 
   function toChineseNumber(number) {
@@ -339,6 +348,14 @@
     nextBook.lastOpened = Date.now();
     state.currentPage = "book";
     closeTransientUi();
+    if (nextBook.external && state.externalAdapter) {
+      showPage("book");
+      updateChapterHeader(nextBook.chapterIndex);
+      Promise.resolve(state.externalAdapter.openBook(nextBook)).catch((error) => {
+        state.externalAdapter.reportError?.(error);
+      });
+      return;
+    }
     renderArticle(nextBook);
     updateChapterHeader(nextBook.chapterIndex);
     showPage("book");
@@ -373,12 +390,20 @@
   function saveCurrentProgress() {
     const book = activeBook();
     if (!book || state.currentPage !== "book") return;
+    if (book.external && state.externalAdapter) {
+      state.externalAdapter.saveCurrentProgress(book);
+      return;
+    }
     const maximum = elements.readingScroll.scrollHeight - elements.readingScroll.clientHeight;
     book.progress = maximum > 0 ? clamp(elements.readingScroll.scrollTop / maximum, 0, 1) : 0;
     book.chapterIndex = currentChapterIndex();
   }
 
   function currentChapterIndex() {
+    const book = activeBook();
+    if (book?.external && state.externalAdapter) {
+      return state.externalAdapter.currentChapterIndex(book);
+    }
     const sections = [...elements.readingArticle.querySelectorAll(".chapter-section")];
     if (!sections.length) return 0;
     const threshold = elements.readingScroll.scrollTop + 100;
@@ -392,6 +417,10 @@
   function updateReadingState() {
     const book = activeBook();
     if (!book) return;
+    if (book.external && state.externalAdapter) {
+      state.externalAdapter.updateReadingState(book);
+      return;
+    }
     const maximum = elements.readingScroll.scrollHeight - elements.readingScroll.clientHeight;
     book.progress = maximum > 0 ? clamp(elements.readingScroll.scrollTop / maximum, 0, 1) : 0;
     book.chapterIndex = currentChapterIndex();
@@ -407,12 +436,16 @@
   }
 
   function updateChapterHeader(index) {
-    elements.navChapterTitle.textContent = chapterLabel(clamp(index, 0, chapterTitles.length - 1));
+    elements.navChapterTitle.textContent = displayChapterLabel(activeBook(), index);
   }
 
   function renderChapterList() {
     const book = activeBook();
     if (!book) return;
+    if (book.external && state.externalAdapter) {
+      state.externalAdapter.renderChapterList(book, elements.chapterList, jumpToChapter);
+      return;
+    }
     elements.chapterList.replaceChildren();
     chapterTitles.forEach((title, index) => {
       const item = document.createElement("button");
@@ -449,6 +482,11 @@
 
   function jumpToChapter(index) {
     const book = activeBook();
+    if (book?.external && state.externalAdapter) {
+      state.externalAdapter.jumpToChapter(book, index);
+      closeChapterPanel();
+      return;
+    }
     const target = elements.readingArticle.querySelector(`[data-chapter-index="${index}"]`);
     if (!book || !target) return;
     book.chapterIndex = index;
@@ -651,8 +689,14 @@
       closeTransientUi();
       showPage("shelf");
     });
-    elements.addBookButton.addEventListener("click", () => addSimulatedBook());
-    elements.emptyAddButton.addEventListener("click", () => addSimulatedBook());
+    elements.addBookButton.addEventListener("click", () => {
+      if (state.externalAdapter) state.externalAdapter.selectLocalBook(false);
+      else addSimulatedBook();
+    });
+    elements.emptyAddButton.addEventListener("click", () => {
+      if (state.externalAdapter) state.externalAdapter.selectLocalBook(false);
+      else addSimulatedBook();
+    });
     elements.chapterTrigger.addEventListener("click", openChapterPanel);
     elements.closeChapters.addEventListener("click", closeChapterPanel);
     elements.chapterScrim.addEventListener("click", closeChapterPanel);
@@ -663,7 +707,8 @@
     elements.readerMenu.addEventListener("click", (event) => event.stopPropagation());
     elements.mockOpenFile.addEventListener("click", () => {
       hideReaderMenu();
-      addSimulatedBook({ openAfterAdd: true });
+      if (state.externalAdapter) state.externalAdapter.selectLocalBook(true);
+      else addSimulatedBook({ openAfterAdd: true });
     });
     elements.fontSizeRange.addEventListener("input", () => {
       state.fontSize = Number(elements.fontSizeRange.value);
@@ -734,6 +779,72 @@
     if (book) openBook(book.id);
     else showPage("shelf");
   }
+
+  function registerExternalAdapter(adapter) {
+    state.externalAdapter = adapter;
+  }
+
+  function upsertExternalBook(metadata, { openAfterAdd = false } = {}) {
+    const existing = books.find((book) => book.id === metadata.book_id);
+    const book = {
+      id: metadata.book_id,
+      title: metadata.title,
+      format: metadata.format,
+      progress:
+        metadata.text_length > 0 ? metadata.char_position / metadata.text_length : 0,
+      chapterIndex: metadata.chapter_index || 0,
+      chapters: metadata.chapters || [],
+      textLength: metadata.text_length || 0,
+      charPosition: metadata.char_position || 0,
+      lastOpened: Date.now(),
+      missing: false,
+      external: true,
+    };
+    if (existing) Object.assign(existing, book);
+    else books.push(book);
+    renderShelf();
+    if (openAfterAdd) openBook(book.id);
+    return book;
+  }
+
+  function updateExternalBook(bookId, patch) {
+    const book = books.find((item) => item.id === bookId);
+    if (!book) return null;
+    Object.assign(book, patch);
+    if (book.textLength > 0 && Number.isFinite(book.charPosition)) {
+      book.progress = clamp(book.charPosition / book.textLength, 0, 1);
+    }
+    if (book.id === state.activeBookId) {
+      const percentage = Math.round(book.progress * 100);
+      elements.readerProgressFill.style.width = `${percentage}%`;
+      elements.readerProgressText.textContent = `${percentage}%`;
+      updateChapterHeader(book.chapterIndex);
+    }
+    return book;
+  }
+
+  function activateExternalBook(bookId) {
+    const book = books.find((item) => item.id === bookId && item.external);
+    if (!book) return null;
+    state.activeBookId = bookId;
+    state.currentPage = "book";
+    showPage("book");
+    return book;
+  }
+
+  window.notebookPrototype = {
+    activateExternalBook,
+    activeBook,
+    elements,
+    getState: () => ({ ...state, externalAdapter: Boolean(state.externalAdapter) }),
+    openBook,
+    registerExternalAdapter,
+    renderShelf,
+    showPage,
+    showToast,
+    updateExternalBook,
+    upsertExternalBook,
+  };
 
   initialize();
 })();

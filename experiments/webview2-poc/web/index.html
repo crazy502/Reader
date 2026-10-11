@@ -7,6 +7,7 @@
     <title>Notebook · Kindle-inspired UI Prototype</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="poc.css" />
+    <link rel="stylesheet" href="reader-engine.css" />
   </head>
   <body>
     <div class="prototype-shell" id="appShell" data-app-mode="work">
@@ -82,6 +83,21 @@
             <span class="menu-row-icon" aria-hidden="true">＋</span>
             <span>打开文件</span>
           </button>
+          <section class="poc-reader-lab" aria-labelledby="pocReaderLabTitle">
+            <p class="menu-label" id="pocReaderLabTitle" data-poc-i18n="performanceTitle"></p>
+            <label class="poc-reader-strategy-row">
+              <span data-poc-i18n="renderStrategy"></span>
+              <select id="pocReaderStrategy">
+                <option value="whole" data-poc-i18n="strategyWhole"></option>
+                <option value="chunked" data-poc-i18n="strategyChunked" selected></option>
+              </select>
+            </label>
+            <div class="poc-reader-position-actions">
+              <button id="pocReaderSave" type="button" data-poc-i18n="savePosition"></button>
+              <button id="pocReaderRestore" type="button" data-poc-i18n="restorePosition"></button>
+            </div>
+            <pre class="poc-reader-metrics" id="pocReaderMetrics"></pre>
+          </section>
           <div class="menu-divider"></div>
           <div class="menu-section">
             <p class="menu-label">阅读主题</p>
@@ -144,7 +160,10 @@
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </div>
 
+    <script src="src/i18n/messages.js"></script>
     <script src="app.js"></script>
+    <script src="char-position.js"></script>
+    <script src="reader-engine.js"></script>
     <script src="poc.js"></script>
   </body>
 </html>

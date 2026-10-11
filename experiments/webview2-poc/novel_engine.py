@@ -24,6 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from reader.core.novel_parser import Chapter, Novel, NovelLoadError  # noqa: E402
 from reader.loaders import load_novel  # noqa: E402
+from src.i18n import tr  # noqa: E402
 
 
 RenderStrategy = Literal["whole", "chunked"]
@@ -94,9 +95,9 @@ class ExperimentLibrary:
     def open_path(self, path: str | Path) -> dict[str, Any]:
         source = Path(path).expanduser().resolve(strict=False)
         if source.suffix.lower() not in {".txt", ".epub"}:
-            raise ExperimentNovelError("仅支持 TXT 和 EPUB 文件。")
+            raise ExperimentNovelError(tr("only_txt_epub"))
         if not source.is_file():
-            raise ExperimentNovelError(f"找不到小说文件：{source}")
+            raise ExperimentNovelError(tr("file_not_found", path=source))
         normalized = str(source).casefold()
         existing_id = self._path_ids.get(normalized)
         if existing_id is not None:
@@ -106,10 +107,10 @@ class ExperimentLibrary:
         try:
             novel = load_novel(source)
         except (OSError, UnicodeError, NovelLoadError) as error:
-            raise ExperimentNovelError(f"无法读取小说：{source.name}") from error
+            raise ExperimentNovelError(tr("load_failed", name=source.name)) from error
         parse_ms = (time.perf_counter() - started) * 1000
         if not novel.text or not novel.chapters:
-            raise ExperimentNovelError("小说没有可阅读的正文。")
+            raise ExperimentNovelError(tr("empty_novel"))
 
         book_id = "path_" + sha256(normalized.encode("utf-8")).hexdigest()
         book = ExperimentBook(
@@ -164,7 +165,7 @@ class ExperimentLibrary:
                 book.chunked_fragments = build_chunked_fragments(book.novel)
             fragments = book.chunked_fragments
         else:
-            raise ExperimentNovelError(f"未知渲染策略：{strategy}")
+            raise ExperimentNovelError(tr("unknown_strategy", strategy=strategy))
 
         payload_ms = (time.perf_counter() - started) * 1000
         book.payload_build_ms[strategy] = payload_ms
@@ -213,7 +214,7 @@ class ExperimentLibrary:
         try:
             return self._books[str(book_id)]
         except KeyError as error:
-            raise ExperimentNovelError("实验会话中找不到这本书，请重新打开。") from error
+            raise ExperimentNovelError(tr("book_not_loaded")) from error
 
 
 def chapter_as_json(chapter: Chapter) -> dict[str, Any]:
@@ -244,34 +245,49 @@ def build_whole_fragments(novel: Novel) -> tuple[TextFragment, ...]:
     heading_starts = {chapter.start_char: chapter.index for chapter in novel.chapters}
     fragments: list[TextFragment] = []
     cursor = 0
+    paragraph_start = 0
     for line in novel.text.splitlines(keepends=True):
         if not line:
             continue
         line_end = cursor + len(line)
-        split_start = cursor
-        while split_start < line_end:
-            split_end = min(line_end, split_start + MAX_WHOLE_FRAGMENT_CHARS)
-            chapter_index = chapter_index_for_position(novel.chapters, split_start)
-            fragments.append(
-                TextFragment(
-                    split_start,
-                    split_end,
-                    novel.text[split_start:split_end],
-                    chapter_index,
-                    "heading" if split_start in heading_starts else "body",
-                )
-            )
-            split_start = split_end
         cursor = line_end
-    if cursor < len(novel.text):
-        chapter_index = chapter_index_for_position(novel.chapters, cursor)
-        fragments.append(
-            TextFragment(cursor, len(novel.text), novel.text[cursor:], chapter_index)
+        paragraph_complete = not line.rstrip("\r\n") or cursor - paragraph_start >= MAX_WHOLE_FRAGMENT_CHARS
+        if paragraph_complete:
+            _append_whole_range(
+                fragments, novel, paragraph_start, cursor, heading_starts
+            )
+            paragraph_start = cursor
+    if paragraph_start < len(novel.text):
+        _append_whole_range(
+            fragments, novel, paragraph_start, len(novel.text), heading_starts
         )
     if not fragments and novel.text:
         fragments.append(TextFragment(0, len(novel.text), novel.text, 0))
     _assert_exact_fragments(novel.text, fragments)
     return tuple(fragments)
+
+
+def _append_whole_range(
+    fragments: list[TextFragment],
+    novel: Novel,
+    start: int,
+    end: int,
+    heading_starts: dict[int, int],
+) -> None:
+    cursor = start
+    while cursor < end:
+        fragment_end = min(end, cursor + MAX_WHOLE_FRAGMENT_CHARS)
+        chapter_index = chapter_index_for_position(novel.chapters, cursor)
+        fragments.append(
+            TextFragment(
+                cursor,
+                fragment_end,
+                novel.text[cursor:fragment_end],
+                chapter_index,
+                "heading" if cursor in heading_starts else "body",
+            )
+        )
+        cursor = fragment_end
 
 
 def build_chunked_fragments(novel: Novel) -> tuple[TextFragment, ...]:
