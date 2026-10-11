@@ -10,9 +10,15 @@
   const saveButton = document.getElementById("pocReaderSave");
   const restoreButton = document.getElementById("pocReaderRestore");
   const metricsOutput = document.getElementById("pocReaderMetrics");
+  const loadingOverlay = document.getElementById("previewReaderLoading");
+  const loadingDetail = document.getElementById("previewLoadingDetail");
+  const cancelLoadingButton = document.getElementById("previewCancelLoading");
 
   document.querySelectorAll("[data-poc-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.pocI18n);
+  });
+  document.querySelectorAll("[data-poc-i18n-aria]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.pocI18nAria));
   });
 
   const state = {
@@ -24,6 +30,7 @@
     strategy: "chunked",
     rendering: false,
     renderToken: 0,
+    openToken: 0,
     positionAnchor: 0,
     savedPosition: 0,
     saveTimer: null,
@@ -31,6 +38,7 @@
     scrollFrame: null,
     lastMetrics: null,
     benchmark: { status: "idle", result: null, error: null },
+    previewSmoke: { status: "idle", result: null, error: null },
   };
 
   function bridge() {
@@ -67,6 +75,7 @@
       active?.external === true &&
       active.id === state.currentBookId &&
       prototype.getState().currentPage === "book" &&
+      window.notebookPoc?.getState().appMode === "read" &&
       document.getElementById("bookPage").classList.contains("is-active")
     );
   }
@@ -80,6 +89,7 @@
 
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (message === t("renderSuperseded")) return;
     prototype.showToast(t("loadFailed", { message }));
     setMetrics({ error: message });
   }
@@ -108,6 +118,22 @@
     }
   }
 
+  function assertOpenToken(token) {
+    if (token !== null && token !== state.openToken) {
+      throw new Error(t("renderSuperseded"));
+    }
+  }
+
+  function showLoading(book) {
+    loadingDetail.textContent = t("openingBook", { title: book.title });
+    prototype.showPage("book");
+    loadingOverlay.hidden = false;
+  }
+
+  function hideLoading() {
+    loadingOverlay.hidden = true;
+  }
+
   function createFragmentNode(fragment, strategy) {
     const node = document.createElement(fragment.kind === "heading" ? "h2" : "div");
     node.className = `poc-reader-fragment poc-reader-fragment-${fragment.kind}`;
@@ -132,7 +158,7 @@
     }
   }
 
-  async function renderPayload(payload, operationStarted) {
+  async function renderPayload(payload, operationStarted, openToken = null) {
     const strategy = payload.strategy;
     const token = ++state.renderToken;
     state.rendering = true;
@@ -160,6 +186,7 @@
       const batchSize = Math.max(24, Math.ceil(payload.fragments.length / 8));
       for (let offset = 0; offset < payload.fragments.length; offset += batchSize) {
         if (token !== state.renderToken) throw new Error(t("renderSuperseded"));
+        assertOpenToken(openToken);
         const insertStarted = performance.now();
         const documentFragment = document.createDocumentFragment();
         for (const fragment of payload.fragments.slice(offset, offset + batchSize)) {
@@ -174,6 +201,8 @@
         }
       }
     }
+
+    assertOpenToken(openToken);
 
     const layoutStarted = performance.now();
     const scrollHeight = elements.readingScroll.scrollHeight;
@@ -220,7 +249,7 @@
   }
 
   function topCharPosition() {
-    if (!state.fragments.length || state.rendering || !isExternalBookVisible()) {
+    if (!state.fragments.length || state.rendering) {
       return state.positionAnchor;
     }
     const scrollRect = elements.readingScroll.getBoundingClientRect();
@@ -314,7 +343,7 @@
     window.clearTimeout(state.saveTimer);
     state.saveTimer = window.setTimeout(() => {
       void saveCurrentPosition();
-    }, 400);
+    }, 700);
   }
 
   async function saveCurrentPosition() {
@@ -329,7 +358,24 @@
     return position;
   }
 
-  async function loadAndRenderBook(book, strategy = state.strategy, benchmark = false) {
+  async function saveCurrentAnchor() {
+    if (!state.currentBookId || state.rendering) return state.positionAnchor;
+    const bookId = state.currentBookId;
+    const position = isExternalBookVisible() ? topCharPosition() : state.positionAnchor;
+    state.positionAnchor = position;
+    state.savedPosition = position;
+    updateBookDisplay(position);
+    await callPython("save_position", bookId, position);
+    return position;
+  }
+
+  async function loadAndRenderBook(
+    book,
+    strategy = state.strategy,
+    benchmark = false,
+    options = {},
+  ) {
+    const openToken = options.openToken ?? null;
     const metadata = state.metadata.get(book.id) || {
       book_id: book.id,
       title: book.title,
@@ -340,7 +386,7 @@
     };
     state.metadata.set(book.id, metadata);
     state.currentBookId = book.id;
-    prototype.activateExternalBook(book.id);
+    if (options.activate !== false) prototype.activateExternalBook(book.id);
     state.strategy = strategy;
     if (strategySelect) strategySelect.value = strategy;
 
@@ -350,13 +396,15 @@
     setMetrics(t("buildingDom"));
     const bridgeStarted = performance.now();
     const payload = await callPython("get_render_payload", book.id, strategy);
+    assertOpenToken(openToken);
     const bridgeMs = performance.now() - bridgeStarted;
     validatePayload(payload);
     const { fragments: _transferredFragments, ...payloadMetadata } = payload;
     state.metadata.set(book.id, payloadMetadata);
-    const renderMetrics = await renderPayload(payload, operationStarted);
+    const renderMetrics = await renderPayload(payload, operationStarted, openToken);
     state.renderedBookId = book.id;
     const restored = await restorePosition(payload.char_position || 0);
+    assertOpenToken(openToken);
     state.savedPosition = payload.char_position || 0;
     updateBookDisplay(restored);
     const heapAfter = performance.memory?.usedJSHeapSize ?? null;
@@ -404,12 +452,58 @@
       state.currentBookId === book.id &&
       state.fragments.length
     ) {
-      await restorePosition(book.charPosition || state.positionAnchor || 0);
+      prototype.activateExternalBook(book.id);
+      hideLoading();
       elements.readingScroll.focus({ preventScroll: true });
       return;
     }
-    await loadAndRenderBook(book, state.strategy, false);
-    elements.readingScroll.focus({ preventScroll: true });
+    const token = ++state.openToken;
+    ++state.renderToken;
+    try {
+      if (state.currentBookId && state.currentBookId !== book.id) {
+        await saveCurrentAnchor();
+      }
+      assertOpenToken(token);
+      showLoading(book);
+      let prepared = book;
+      if (book.persisted) {
+        const metadata = await callPython("prepare_preview_book", book.id);
+        assertOpenToken(token);
+        prepared = prototype.upsertExternalBook(metadata);
+        state.metadata.set(book.id, metadata);
+      }
+      await loadAndRenderBook(prepared, "chunked", false, {
+        activate: false,
+        openToken: token,
+      });
+      assertOpenToken(token);
+      if (book.persisted) {
+        const committed = await callPython("commit_preview_book", book.id);
+        assertOpenToken(token);
+        prototype.updateExternalBook(book.id, {
+          chapterIndex: committed.chapter_index,
+          charPosition: committed.char_position,
+          textLength: committed.text_length,
+          lastOpened: committed.last_opened_at,
+          missing: false,
+        });
+      }
+      prototype.activateExternalBook(book.id);
+      prototype.renderShelf();
+      hideLoading();
+      elements.readingScroll.focus({ preventScroll: true });
+    } catch (error) {
+      if (token === state.openToken) {
+        state.currentBookId = null;
+        state.renderedBookId = null;
+        state.fragments = [];
+        state.positionAnchor = 0;
+        state.rendering = false;
+        hideLoading();
+        prototype.showPage("shelf");
+      }
+      throw error;
+    }
   }
 
   function updateReadingState(book) {
@@ -453,14 +547,92 @@
     await saveCurrentPosition();
   }
 
+  function cancelLoad() {
+    ++state.openToken;
+    ++state.renderToken;
+    if (state.rendering) {
+      state.currentBookId = null;
+      state.renderedBookId = null;
+      state.fragments = [];
+      state.positionAnchor = 0;
+    }
+    state.rendering = false;
+    hideLoading();
+  }
+
+  async function renameBook(bookId, title) {
+    try {
+      const updated = await callPython("rename_preview_book", bookId, title);
+      prototype.updateExternalBook(bookId, { title: updated.title });
+      const metadata = state.metadata.get(bookId);
+      if (metadata) metadata.title = updated.title;
+      prototype.renderShelf();
+      prototype.showToast(t("renameSucceeded"));
+      return updated;
+    } catch (error) {
+      reportError(error);
+      return null;
+    }
+  }
+
+  async function relocateBook(bookId) {
+    try {
+      const result = await callPython("relocate_preview_book", bookId);
+      if (!result.ok || result.cancelled) return null;
+      prototype.updateExternalBook(bookId, {
+        missing: false,
+        filePath: result.book.file_path,
+      });
+      if (state.renderedBookId === bookId) {
+        const metadata = state.metadata.get(bookId);
+        if (metadata) metadata.path = result.book.file_path;
+      } else {
+        state.metadata.delete(bookId);
+      }
+      prototype.renderShelf();
+      prototype.showToast(t("relocatedSucceeded"));
+      return result.book;
+    } catch (error) {
+      reportError(error);
+      return null;
+    }
+  }
+
+  async function removeBook(bookId) {
+    try {
+      await callPython("remove_preview_book", bookId);
+      prototype.removeExternalBook(bookId);
+      state.metadata.delete(bookId);
+      if (state.currentBookId === bookId) {
+        state.currentBookId = null;
+        state.renderedBookId = null;
+        state.fragments = [];
+      }
+      prototype.showToast(t("removedSucceeded"));
+      return true;
+    } catch (error) {
+      reportError(error);
+      return false;
+    }
+  }
+
+  async function saveTheme(theme) {
+    return callPython("save_preview_theme", theme);
+  }
+
   function adapter() {
     return {
+      cancelLoad,
       currentChapterIndex,
       jumpToChapter,
       openBook: openExternalBook,
+      relocateBook,
+      removeBook,
+      renameBook,
       renderChapterList,
       reportError,
       saveCurrentProgress: () => void saveCurrentPosition(),
+      saveTheme,
       selectLocalBook,
       updateReadingState,
     };
@@ -646,6 +818,53 @@
         Math.abs(firstRestored - firstState.char_position) < 300 &&
         Math.abs(secondRestored - secondState.char_position) < 300,
     };
+  }
+
+  async function runPreviewIntegrationSmoke() {
+    state.previewSmoke = { status: "running", result: null, error: null };
+    try {
+      const books = prototype.getBooks();
+      if (books.length !== 2 || !books.every((book) => book.persisted)) {
+        throw new Error("Preview smoke requires two persisted books.");
+      }
+      const first = books[0];
+      const second = books[1];
+
+      await openExternalBook(first);
+      const firstMetadata = state.metadata.get(first.id);
+      const firstTarget = Math.floor(firstMetadata.text_length * 0.31);
+      await restorePosition(firstTarget);
+      const firstSaved = await saveCurrentPosition();
+
+      prototype.showPage("shelf");
+      await openExternalBook(second);
+      const secondMetadata = state.metadata.get(second.id);
+      const secondTarget = Math.floor(secondMetadata.text_length * 0.69);
+      await restorePosition(secondTarget);
+      const secondSaved = await saveCurrentPosition();
+
+      prototype.showPage("shelf");
+      await openExternalBook(first);
+      const firstRestored = topCharPosition();
+      await callPython("save_preview_theme", "eye_care");
+      const result = {
+        ok:
+          firstSaved > 0 &&
+          secondSaved > 0 &&
+          firstSaved !== secondSaved &&
+          Math.abs(firstRestored - firstSaved) < 300,
+        first: { saved: firstSaved, restored: firstRestored },
+        second: { saved: secondSaved },
+        active_book_id: first.id,
+        fragment_count: state.fragments.length,
+      };
+      state.previewSmoke = { status: "complete", result, error: null };
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      state.previewSmoke = { status: "error", result: null, error: message };
+      throw error;
+    }
   }
 
   async function runGeneratedFormatSampleTest() {
@@ -841,12 +1060,18 @@
     prototype.showToast(t("positionRestored", { position }));
   });
 
+  cancelLoadingButton?.addEventListener("click", () => {
+    cancelLoad();
+    prototype.showPage("shelf");
+  });
+
   bindReflowProtection();
   prototype.registerExternalAdapter(adapter());
   if (metricsOutput) metricsOutput.textContent = t("performanceIdle");
 
   window.notebookPhase2 = {
     getBenchmarkState,
+    getPreviewSmokeState: () => state.previewSmoke,
     getState: () => ({
       currentBookId: state.currentBookId,
       renderedBookId: state.renderedBookId,
@@ -855,11 +1080,19 @@
       fragmentCount: state.fragments.length,
       rendering: state.rendering,
     }),
+    getCloseSnapshot: () => ({
+      book_id: state.currentBookId,
+      char_position:
+        state.currentBookId && !state.rendering && isExternalBookVisible()
+          ? topCharPosition()
+          : state.positionAnchor,
+    }),
     restorePosition,
     runAutomatedBenchmark,
     runIndependentBookStateTest,
     runGeneratedFormatSampleTest,
     runModePersistenceTest,
+    runPreviewIntegrationSmoke,
     runReflowStabilityChecks,
     saveCurrentPosition,
     topCharPosition,

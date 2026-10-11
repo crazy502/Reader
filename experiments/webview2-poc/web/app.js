@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  const t = (key, values) => window.notebookPocI18n.t(key, values);
+
   const coverPalette = [
     "#DDD2BD",
     "#D5E1D0",
@@ -11,11 +13,11 @@
   ];
 
   const themes = [
-    { id: "classic", name: "经典", color: "#F6F1E7" },
-    { id: "white", name: "纯白", color: "#FFFFFF" },
-    { id: "eye_care", name: "护眼绿", color: "#EAF4DF" },
-    { id: "parchment", name: "羊皮纸", color: "#F3E7C9" },
-    { id: "light_gray", name: "浅灰", color: "#F3F3F3" },
+    { id: "classic", name: t("themeClassic"), color: "#F6F1E7" },
+    { id: "white", name: t("themeWhite"), color: "#FFFFFF" },
+    { id: "eye_care", name: t("themeEyeCare"), color: "#EAF4DF" },
+    { id: "parchment", name: t("themeParchment"), color: "#F3E7C9" },
+    { id: "light_gray", name: t("themeLightGray"), color: "#F3F3F3" },
   ];
 
   const chapterTitles = [
@@ -212,7 +214,12 @@
 
   function renderShelf() {
     elements.bookGrid.replaceChildren();
-    const orderedBooks = [...books].sort((left, right) => right.lastOpened - left.lastOpened);
+    const openedAt = (book) => {
+      if (typeof book.lastOpened === "number") return book.lastOpened;
+      const parsed = Date.parse(book.lastOpened || "");
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const orderedBooks = [...books].sort((left, right) => openedAt(right) - openedAt(left));
 
     orderedBooks.forEach((book) => {
       const card = document.createElement("article");
@@ -224,12 +231,18 @@
       cover.style.backgroundColor = stableColor(book.id);
       cover.tabIndex = 0;
       cover.setAttribute("role", "button");
-      cover.setAttribute("aria-label", `${book.title}，阅读进度 ${Math.round(book.progress * 100)}%`);
+      cover.setAttribute(
+        "aria-label",
+        t("bookProgressAria", {
+          title: book.title,
+          progress: Math.round(book.progress * 100),
+        }),
+      );
 
       if (book.id === state.activeBookId) {
         const marker = document.createElement("span");
         marker.className = "current-marker";
-        marker.textContent = "正在阅读";
+        marker.textContent = t("currentlyReading");
         cover.appendChild(marker);
       }
 
@@ -242,7 +255,7 @@
       menuButton.type = "button";
       menuButton.className = "card-menu-button";
       menuButton.textContent = "⋯";
-      menuButton.setAttribute("aria-label", `${book.title} 管理菜单`);
+      menuButton.setAttribute("aria-label", t("bookMenuAria", { title: book.title }));
       menuButton.addEventListener("click", (event) => {
         event.stopPropagation();
         const rect = menuButton.getBoundingClientRect();
@@ -253,7 +266,7 @@
       if (book.missing) {
         const missing = document.createElement("span");
         missing.className = "missing-badge";
-        missing.textContent = "⚠ 文件丢失";
+        missing.textContent = t("missingFileBadge");
         cover.appendChild(missing);
       }
 
@@ -284,7 +297,7 @@
       metaRow.className = "book-meta-row";
       const chapter = document.createElement("span");
       chapter.className = "book-caption";
-      chapter.textContent = `第${book.chapterIndex + 1}章`;
+      chapter.textContent = t("chapterShort", { index: book.chapterIndex + 1 });
       const percentage = document.createElement("span");
       percentage.textContent = `${Math.round(book.progress * 100)}%`;
       metaRow.append(chapter, percentage);
@@ -344,18 +357,16 @@
     }
 
     if (state.currentPage === "book") saveCurrentProgress();
-    state.activeBookId = nextBook.id;
-    nextBook.lastOpened = Date.now();
-    state.currentPage = "book";
     closeTransientUi();
     if (nextBook.external && state.externalAdapter) {
-      showPage("book");
-      updateChapterHeader(nextBook.chapterIndex);
       Promise.resolve(state.externalAdapter.openBook(nextBook)).catch((error) => {
         state.externalAdapter.reportError?.(error);
       });
       return;
     }
+    state.activeBookId = nextBook.id;
+    nextBook.lastOpened = Date.now();
+    state.currentPage = "book";
     renderArticle(nextBook);
     updateChapterHeader(nextBook.chapterIndex);
     showPage("book");
@@ -513,10 +524,15 @@
     });
   }
 
-  function applyTheme(themeId) {
+  function applyTheme(themeId, persist = true) {
     state.theme = themes.some((theme) => theme.id === themeId) ? themeId : "classic";
     elements.bookPage.dataset.theme = state.theme;
     renderThemes();
+    if (persist && state.externalAdapter?.saveTheme) {
+      Promise.resolve(state.externalAdapter.saveTheme(state.theme)).catch((error) => {
+        state.externalAdapter.reportError?.(error);
+      });
+    }
   }
 
   function applyReadingSettings() {
@@ -561,16 +577,20 @@
     const book = books.find((item) => item.id === bookId);
     if (!book) return;
     openDialog({
-      title: "修改显示书名",
-      message: "只修改书架中的显示名称，不会更改磁盘上的原文件名。",
+      title: t("renameTitle"),
+      message: t("renameMessage"),
       inputValue: book.title,
-      confirmLabel: "保存",
+      confirmLabel: t("save"),
       onConfirm(value) {
         const title = value.trim();
         if (!title) return false;
+        if (book.external && state.externalAdapter?.renameBook) {
+          void state.externalAdapter.renameBook(book.id, title);
+          return true;
+        }
         book.title = title;
         renderShelf();
-        showToast("显示书名已更新");
+        showToast(t("renameSucceeded"));
         return true;
       },
     });
@@ -580,15 +600,19 @@
     const book = books.find((item) => item.id === bookId);
     if (!book) return;
     openDialog({
-      title: "找不到原文件",
-      message: `“${book.title}”的原文件可能已被移动或删除。此原型会模拟重新定位成功。`,
+      title: t("relocateTitle"),
+      message: t("relocateMessage", { title: book.title }),
       showInput: false,
-      confirmLabel: "重新定位",
+      confirmLabel: t("relocate"),
       onConfirm() {
+        if (book.external && state.externalAdapter?.relocateBook) {
+          void state.externalAdapter.relocateBook(book.id);
+          return true;
+        }
         book.missing = false;
         book.lastOpened = Date.now();
         renderShelf();
-        showToast("已模拟重新定位文件");
+        showToast(t("relocatedSucceeded"));
         return true;
       },
     });
@@ -598,15 +622,19 @@
     const book = books.find((item) => item.id === bookId);
     if (!book) return;
     openDialog({
-      title: "从书架移除",
-      message: `只移除“${book.title}”的书架记录，不会删除磁盘上的原文件。`,
+      title: t("removeTitle"),
+      message: t("removeMessage", { title: book.title }),
       showInput: false,
-      confirmLabel: "移除",
+      confirmLabel: t("remove"),
       onConfirm() {
+        if (book.external && state.externalAdapter?.removeBook) {
+          void state.externalAdapter.removeBook(book.id);
+          return true;
+        }
         books = books.filter((item) => item.id !== book.id);
         if (state.activeBookId === book.id) state.activeBookId = books[0]?.id || null;
         renderShelf();
-        showToast("已从书架移除");
+        showToast(t("removedSucceeded"));
         return true;
       },
     });
@@ -617,7 +645,7 @@
     message,
     inputValue = "",
     showInput = true,
-    confirmLabel = "确认",
+    confirmLabel = t("confirm"),
     onConfirm,
   }) {
     closeBookContextMenu();
@@ -653,7 +681,10 @@
     state.addedCount += 1;
     const book = {
       id: `simulated-added-book-${state.addedCount}`,
-      title: state.addedCount === 1 ? "新加入的远方来信" : `新加入的书 ${state.addedCount}`,
+      title:
+        state.addedCount === 1
+          ? t("demoBookFirst")
+          : t("demoBookNumber", { index: state.addedCount }),
       format: state.addedCount % 2 ? "EPUB" : "TXT",
       progress: 0,
       chapterIndex: 0,
@@ -662,7 +693,7 @@
     };
     books.push(book);
     renderShelf();
-    showToast(`已模拟添加 ${book.format}：《${book.title}》`);
+    showToast(t("demoBookAdded", { format: book.format, title: book.title }));
     if (openAfterAdd) openBook(book.id);
     return book;
   }
@@ -686,6 +717,7 @@
   function bindEvents() {
     elements.backToShelf.addEventListener("click", () => {
       saveCurrentProgress();
+      state.externalAdapter?.cancelLoad?.();
       closeTransientUi();
       showPage("shelf");
     });
@@ -773,7 +805,7 @@
     bindEvents();
     renderShelf();
     renderThemes();
-    applyTheme(state.theme);
+    applyTheme(state.theme, false);
     applyReadingSettings();
     const book = activeBook();
     if (book) openBook(book.id);
@@ -793,12 +825,13 @@
       progress:
         metadata.text_length > 0 ? metadata.char_position / metadata.text_length : 0,
       chapterIndex: metadata.chapter_index || 0,
-      chapters: metadata.chapters || [],
-      textLength: metadata.text_length || 0,
-      charPosition: metadata.char_position || 0,
-      lastOpened: Date.now(),
-      missing: false,
+      chapters: metadata.chapters || existing?.chapters || [],
+      textLength: metadata.text_length ?? existing?.textLength ?? 0,
+      charPosition: metadata.char_position ?? existing?.charPosition ?? 0,
+      lastOpened: metadata.last_opened_at || existing?.lastOpened || 0,
+      missing: metadata.missing === true,
       external: true,
+      persisted: metadata.persisted === true,
     };
     if (existing) Object.assign(existing, book);
     else books.push(book);
@@ -832,13 +865,46 @@
     return book;
   }
 
+  function bootstrapPreview(snapshot) {
+    if (!snapshot?.enabled) return false;
+    books = (snapshot.books || []).map((metadata) => ({
+      id: metadata.book_id,
+      title: metadata.title,
+      format: metadata.format,
+      progress: Number(metadata.progress) || 0,
+      chapterIndex: Number(metadata.chapter_index) || 0,
+      chapterTitle: metadata.chapter_title || "",
+      chapters: [],
+      textLength: Number(metadata.text_length) || 0,
+      charPosition: Number(metadata.char_position) || 0,
+      lastOpened: metadata.last_opened_at || "",
+      missing: metadata.missing === true,
+      external: true,
+      persisted: true,
+    }));
+    state.activeBookId = snapshot.active_book_id || null;
+    state.currentPage = "shelf";
+    applyTheme(snapshot.reading_theme || "classic", false);
+    showPage("shelf");
+    return true;
+  }
+
+  function removeExternalBook(bookId) {
+    books = books.filter((book) => book.id !== bookId);
+    if (state.activeBookId === bookId) state.activeBookId = null;
+    renderShelf();
+  }
+
   window.notebookPrototype = {
     activateExternalBook,
     activeBook,
+    bootstrapPreview,
     elements,
     getState: () => ({ ...state, externalAdapter: Boolean(state.externalAdapter) }),
+    getBooks: () => books.map((book) => ({ ...book })),
     openBook,
     registerExternalAdapter,
+    removeExternalBook,
     renderShelf,
     showPage,
     showToast,

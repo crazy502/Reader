@@ -90,6 +90,68 @@
   font-size: 10px;
 }
 
+body.preview-live .poc-bridge-panel,
+body.preview-live .poc-reader-lab {
+  display: none;
+}
+
+.preview-reader-loading {
+  position: absolute;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--reader-bg);
+  color: var(--reader-fg);
+}
+
+.preview-reader-loading-card {
+  display: grid;
+  width: min(310px, calc(100% - 48px));
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.preview-reader-loading-card strong {
+  font-family: Georgia, "Songti SC", SimSun, serif;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.preview-reader-loading-card > span:not(.preview-reader-loading-mark) {
+  color: var(--reader-secondary);
+  font-size: 11px;
+}
+
+.preview-reader-loading-mark {
+  width: 22px;
+  height: 22px;
+  border: 2px solid color-mix(in srgb, var(--reader-fg) 18%, transparent);
+  border-top-color: color-mix(in srgb, var(--reader-fg) 72%, transparent);
+  border-radius: 50%;
+  animation: preview-reader-spin 900ms linear infinite;
+}
+
+.preview-reader-loading-card button {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--reader-secondary);
+  cursor: pointer;
+  font: 11px/1.4 system-ui, "Microsoft YaHei UI", sans-serif;
+}
+
+.preview-reader-loading-card button:hover {
+  background: color-mix(in srgb, var(--reader-fg) 6%, transparent);
+}
+
+@keyframes preview-reader-spin {
+  to { transform: rotate(360deg); }
+}
+
 .prototype-shell[data-app-mode="work"] .poc-bridge-panel {
   bottom: 52px;
 }

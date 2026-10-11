@@ -21,18 +21,22 @@ from typing import Any
 import webview
 
 from novel_engine import ExperimentLibrary, ExperimentNovelError
+from preview_storage import PreviewStorage, PreviewStorageError
 from sample_data import write_generated_epub, write_generated_txt
 from src.i18n import tr
 
 
-TITLE = "Notebook WebView2 PoC"
+POC_TITLE = "Notebook WebView2 PoC"
+PREVIEW_TITLE = tr("preview_title")
+TITLE = POC_TITLE
 WINDOW_WIDTH = 760
 WINDOW_HEIGHT = 620
 WINDOW_MIN_SIZE = (470, 360)
 ENTER_DELAY_SECONDS = 0.4
 POINTER_POLL_SECONDS = 0.04
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
-INDEX_PATH = EXPERIMENT_ROOT / "web" / "index.html"
+BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", EXPERIMENT_ROOT))
+INDEX_PATH = BUNDLE_ROOT / "web" / "index.html"
 REPORTS_DIR = EXPERIMENT_ROOT / "reports"
 
 
@@ -296,12 +300,17 @@ class PocController:
         phase2_smoke: bool = False,
         benchmark_sizes: tuple[int, ...] = (),
         benchmark_runs: int = 3,
+        preview_mode: bool = False,
+        preview_data_dir: Path | None = None,
+        preview_smoke: bool = False,
     ) -> None:
         self.window: webview.Window | None = None
         self.smoke_test = smoke_test
         self.phase2_smoke = phase2_smoke
         self.benchmark_sizes = benchmark_sizes
         self.benchmark_runs = benchmark_runs
+        self.preview_mode = preview_mode
+        self.preview_smoke = preview_smoke
         self.smoke_error: str | None = None
         self.smoke_result: dict[str, Any] | None = None
         self.renderer = "not-started"
@@ -316,6 +325,9 @@ class PocController:
         self._dialog_depth = 0
         self._dialog_guard_until = 0.0
         self._library = ExperimentLibrary()
+        self._preview = PreviewStorage(preview_data_dir) if preview_mode else None
+        self._preview_library_ids: dict[str, str] = {}
+        self._preview_library_paths: dict[str, str] = {}
 
     def attach(self, window: webview.Window) -> None:
         self.window = window
@@ -345,6 +357,14 @@ class PocController:
                 }
             )
             self._set_mode("work", "startup")
+            if self.preview_mode:
+                self._evaluate(
+                    "window.notebookPreview.bootstrap"
+                    f"({json.dumps(self.preview_snapshot(), ensure_ascii=False)})"
+                )
+            if self.preview_smoke:
+                self._run_preview_smoke(native_snapshot)
+                return
             if self.smoke_test:
                 self._run_smoke_test(native_snapshot)
                 return
@@ -363,6 +383,25 @@ class PocController:
     def on_closed(self) -> None:
         self._stop.set()
 
+    def on_closing(self) -> None:
+        """Synchronously capture the latest anchors before WebView destruction."""
+        if not self.preview_mode or self._preview is None:
+            return
+        try:
+            snapshot = self._evaluate("window.notebookPreview.snapshotForClose()")
+            if not isinstance(snapshot, dict):
+                return
+            self._preview.save_note(str(snapshot.get("work_note", "")))
+            theme = snapshot.get("reading_theme")
+            if isinstance(theme, str):
+                self._preview.save_theme(theme)
+            book_id = snapshot.get("book_id")
+            position = snapshot.get("char_position")
+            if isinstance(book_id, str) and isinstance(position, (int, float)):
+                self.save_position(book_id, int(position))
+        except Exception:
+            logging.exception("关闭测试版时保存最终状态失败")
+
     def app_info(self) -> dict[str, Any]:
         return {
             "app": TITLE,
@@ -376,7 +415,18 @@ class PocController:
                 "native_poll_ms": int(POINTER_POLL_SECONDS * 1000),
                 "app_mode": self.app_mode,
             },
+            "preview": {
+                "enabled": self.preview_mode,
+                "data_dir": (
+                    str(self._preview.data_dir) if self._preview is not None else None
+                ),
+            },
         }
+
+    def preview_snapshot(self) -> dict[str, Any]:
+        if self._preview is None:
+            return {"enabled": False}
+        return self._preview.snapshot()
 
     @contextmanager
     def dialog_guard(self) -> Any:
@@ -413,7 +463,16 @@ class PocController:
                         "cancelled": True,
                         "message": tr("dialog_cancelled"),
                     }
-                metadata = self._library.open_path(Path(selected[0]))
+                selected_path = Path(selected[0])
+                if self._preview is not None:
+                    record = self._preview.add_book(selected_path)
+                    metadata = (
+                        self.prepare_preview_book(record["book_id"])
+                        if normalized_intent == "open"
+                        else record
+                    )
+                else:
+                    metadata = self._library.open_path(selected_path)
             if normalized_intent == "open":
                 self._set_mode("read", "explicit-file-open")
             return {
@@ -423,18 +482,123 @@ class PocController:
                 "book": metadata,
                 "message": tr("dialog_opened", title=metadata["title"]),
             }
-        except ExperimentNovelError as error:
+        except (ExperimentNovelError, PreviewStorageError) as error:
             return {"ok": False, "cancelled": False, "error": str(error)}
+
+    def prepare_preview_book(self, book_id: str) -> dict[str, Any]:
+        if self._preview is None:
+            return self._library.metadata(book_id)
+        record = self._preview.record(book_id)
+        source = Path(record.file_path)
+        if not source.is_file():
+            raise PreviewStorageError(tr("preview_file_missing"))
+        normalized_path = str(source.resolve(strict=False)).casefold()
+        internal_id = self._preview_library_ids.get(book_id)
+        if (
+            internal_id is None
+            or self._preview_library_paths.get(book_id) != normalized_path
+        ):
+            loaded = self._library.open_path(source)
+            internal_id = str(loaded["book_id"])
+            self._preview_library_ids[book_id] = internal_id
+            self._preview_library_paths[book_id] = normalized_path
+        self._library.save_position(internal_id, record.char_position)
+        metadata = self._library.metadata(internal_id)
+        metadata.update(
+            {
+                "book_id": book_id,
+                "title": record.display_title,
+                "path": record.file_path,
+                "persisted": True,
+            }
+        )
+        return metadata
+
+    def commit_preview_book(self, book_id: str) -> dict[str, Any]:
+        if self._preview is None:
+            return self._library.metadata(book_id)
+        internal_id = self._preview_library_ids.get(book_id)
+        if internal_id is None:
+            raise PreviewStorageError(tr("preview_book_not_found"))
+        return self._preview.activate_loaded(
+            book_id, self._library.metadata(internal_id)
+        )
 
     def render_payload(self, book_id: str, strategy: str) -> dict[str, Any]:
         normalized = "whole" if strategy == "whole" else "chunked"
-        return self._library.render_payload(book_id, normalized)
+        internal_id = self._preview_library_ids.get(book_id, book_id)
+        payload = self._library.render_payload(internal_id, normalized)
+        if self._preview is not None:
+            record = self._preview.record(book_id)
+            payload.update(
+                {
+                    "book_id": book_id,
+                    "title": record.display_title,
+                    "path": record.file_path,
+                    "char_position": record.char_position,
+                    "persisted": True,
+                }
+            )
+        return payload
 
     def save_position(self, book_id: str, position: int) -> dict[str, Any]:
-        return self._library.save_position(book_id, position)
+        internal_id = self._preview_library_ids.get(book_id, book_id)
+        metadata = self._library.save_position(internal_id, position)
+        if self._preview is None:
+            return metadata
+        metadata["book_id"] = book_id
+        return self._preview.save_position(book_id, metadata)
 
     def book_state(self, book_id: str) -> dict[str, Any]:
-        return self._library.metadata(book_id)
+        if self._preview is None:
+            return self._library.metadata(book_id)
+        record = self._preview.record(book_id)
+        return self._preview._book_json(record)
+
+    def rename_preview_book(self, book_id: str, title: str) -> dict[str, Any]:
+        if self._preview is None:
+            raise PreviewStorageError(tr("preview_book_not_found"))
+        return self._preview.rename_book(book_id, title)
+
+    def relocate_preview_book(self, book_id: str) -> dict[str, Any]:
+        if self._preview is None or self.window is None:
+            raise PreviewStorageError(tr("preview_book_not_found"))
+        record = self._preview.record(book_id)
+        extension = record.file_format.lower()
+        with self.dialog_guard():
+            selected = self.window.create_file_dialog(
+                webview.FileDialog.OPEN,
+                allow_multiple=False,
+                file_types=(
+                    tr(
+                        "preview_relocate_type",
+                        format=extension.upper(),
+                        extension=extension,
+                    ),
+                ),
+            )
+        if not selected:
+            return {"ok": False, "cancelled": True}
+        updated = self._preview.relocate_book(book_id, Path(selected[0]))
+        return {"ok": True, "cancelled": False, "book": updated}
+
+    def remove_preview_book(self, book_id: str) -> dict[str, Any]:
+        if self._preview is None:
+            raise PreviewStorageError(tr("preview_book_not_found"))
+        result = self._preview.remove_book(book_id)
+        self._preview_library_ids.pop(book_id, None)
+        self._preview_library_paths.pop(book_id, None)
+        return result
+
+    def save_preview_theme(self, theme: str) -> dict[str, Any]:
+        if self._preview is None:
+            return {"reading_theme": "classic"}
+        return {"reading_theme": self._preview.save_theme(theme)}
+
+    def save_preview_note(self, content: str) -> dict[str, Any]:
+        if self._preview is None:
+            return {"saved": False}
+        return {"saved": self._preview.save_note(content)}
 
     def prepare_synthetic(
         self, target_chars: int, parse_runs: int = 3
@@ -450,6 +614,14 @@ class PocController:
             epub = self._library.open_path(write_generated_epub(root / "sample.epub"))
         return {"generated_samples": True, "txt": txt, "epub": epub}
 
+    def seed_preview_smoke(self, root: Path) -> None:
+        if self._preview is None:
+            raise RuntimeError("Preview storage is not enabled.")
+        root.mkdir(parents=True, exist_ok=True)
+        self._preview.add_book(write_generated_txt(root / "preview-a.txt"))
+        self._preview.add_book(write_generated_epub(root / "preview-b.epub"))
+        self._preview.save_note("WebView2 测试版便笺🙂")
+
     def enable_hover(self) -> dict[str, Any]:
         with self._lock:
             self.hover_reading_enabled = True
@@ -457,7 +629,7 @@ class PocController:
             self._inside_since = None
         return {
             "ok": True,
-            "message": "悬停阅读已启用；进入窗口约 400ms 后显示阅读区域。",
+            "message": tr("hover_enabled"),
         }
 
     def disable_hover(self) -> dict[str, Any]:
@@ -466,7 +638,7 @@ class PocController:
             self._last_inside = None
             self._inside_since = None
         self._set_mode("work", "alt-q")
-        return {"ok": True, "message": "Alt+Q：已禁用悬停阅读并返回工作模式。"}
+        return {"ok": True, "message": tr("hover_disabled")}
 
     def _monitor_pointer(self) -> None:
         assert self._probe is not None
@@ -580,6 +752,55 @@ class PocController:
         print("POC_SMOKE_RESULT=" + json.dumps(self.smoke_result, ensure_ascii=False), flush=True)
         if not success:
             self.smoke_error = "自动冒烟检查未全部通过。"
+        self.window.destroy()
+
+    def _run_preview_smoke(self, native_snapshot: dict[str, Any]) -> None:
+        assert self.window is not None
+        assert self._preview is not None
+        self._set_mode("read", "preview-smoke")
+        self._evaluate(
+            "window.notebookPhase2.runPreviewIntegrationSmoke()"
+            ".catch(() => undefined); true"
+        )
+        deadline = time.perf_counter() + 120
+        frontend_state: dict[str, Any] = {"status": "starting"}
+        while time.perf_counter() < deadline:
+            frontend_state = self._evaluate(
+                "window.notebookPhase2.getPreviewSmokeState()"
+            )
+            if frontend_state.get("status") in {"complete", "error"}:
+                break
+            time.sleep(0.1)
+        result = frontend_state.get("result")
+        restored = PreviewStorage(self._preview.data_dir).snapshot()
+        books = restored["books"]
+        positions = [int(book["char_position"]) for book in books]
+        success = bool(
+            isinstance(result, dict)
+            and result.get("ok")
+            and frontend_state.get("status") == "complete"
+            and len(books) == 2
+            and all(position > 0 for position in positions)
+            and len(set(positions)) == 2
+            and restored["reading_theme"] == "eye_care"
+            and restored["work_note"] == "WebView2 测试版便笺🙂"
+        )
+        self.smoke_result = {
+            "ok": success,
+            "renderer": self.renderer,
+            "runtime": self.runtime,
+            "native_window": native_snapshot,
+            "frontend": result,
+            "frontend_state": frontend_state,
+            "restart_snapshot": restored,
+        }
+        print(
+            "PREVIEW_SMOKE_RESULT="
+            + json.dumps(self.smoke_result, ensure_ascii=True),
+            flush=True,
+        )
+        if not success:
+            self.smoke_error = "WebView2 可用测试版冒烟检查未全部通过。"
         self.window.destroy()
 
     def _run_native_hover_smoke(self) -> dict[str, Any]:
@@ -776,6 +997,9 @@ class PocApi:
     def get_app_info(self) -> dict[str, Any]:
         return self._controller.app_info()
 
+    def get_preview_state(self) -> str:
+        return self._ascii_json(self._controller.preview_snapshot())
+
     def enable_hover_reading(self) -> dict[str, Any]:
         return self._controller.enable_hover()
 
@@ -793,6 +1017,12 @@ class PocApi:
     def select_novel(self, intent: str = "open") -> str:
         return self._ascii_json(self._controller.select_novel(intent))
 
+    def prepare_preview_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.prepare_preview_book(book_id))
+
+    def commit_preview_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.commit_preview_book(book_id))
+
     def get_render_payload(self, book_id: str, strategy: str) -> str:
         return self._ascii_json(self._controller.render_payload(book_id, strategy))
 
@@ -801,6 +1031,23 @@ class PocApi:
 
     def get_book_state(self, book_id: str) -> str:
         return self._ascii_json(self._controller.book_state(book_id))
+
+    def rename_preview_book(self, book_id: str, title: str) -> str:
+        return self._ascii_json(
+            self._controller.rename_preview_book(book_id, title)
+        )
+
+    def relocate_preview_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.relocate_preview_book(book_id))
+
+    def remove_preview_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.remove_preview_book(book_id))
+
+    def save_preview_theme(self, theme: str) -> str:
+        return self._ascii_json(self._controller.save_preview_theme(theme))
+
+    def save_preview_note(self, content: str) -> str:
+        return self._ascii_json(self._controller.save_preview_note(content))
 
     def prepare_synthetic_book(
         self, target_chars: int, parse_runs: int = 3
@@ -831,6 +1078,11 @@ def parse_args() -> argparse.Namespace:
         help=tr("phase2_smoke_help"),
     )
     parser.add_argument(
+        "--preview-smoke",
+        action="store_true",
+        help="在隔离临时目录运行可用测试版的双书持久化冒烟检查",
+    )
+    parser.add_argument(
         "--benchmark",
         action="store_true",
         help=tr("benchmark_help"),
@@ -850,7 +1102,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
+def main(*, preview_mode: bool = False) -> int:
     args = parse_args()
     if sys.platform != "win32":
         print("此 PoC 仅验证 Windows WebView2。", file=sys.stderr)
@@ -876,15 +1128,38 @@ def main() -> int:
     except ValueError:
         print(tr("invalid_benchmark_sizes"), file=sys.stderr)
         return 2
+    effective_preview_mode = preview_mode or args.preview_smoke
+    runtime = detect_webview2_runtime()
+    if effective_preview_mode and not runtime["executable"]:
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            tr("preview_runtime_missing"),
+            tr("preview_runtime_title"),
+            0x10,
+        )
+        return 2
+    preview_temporary: tempfile.TemporaryDirectory[str] | None = None
+    preview_data_dir: Path | None = None
+    if args.preview_smoke:
+        preview_temporary = tempfile.TemporaryDirectory(
+            prefix="notebook-web-preview-smoke-"
+        )
+        preview_data_dir = Path(preview_temporary.name) / "data"
     controller = PocController(
         smoke_test=args.smoke_test,
         phase2_smoke=args.phase2_smoke,
         benchmark_sizes=benchmark_sizes,
         benchmark_runs=max(1, args.benchmark_runs),
+        preview_mode=effective_preview_mode,
+        preview_data_dir=preview_data_dir,
+        preview_smoke=args.preview_smoke,
     )
+    if args.preview_smoke:
+        assert preview_temporary is not None
+        controller.seed_preview_smoke(Path(preview_temporary.name) / "books")
     api = PocApi(controller)
     window = webview.create_window(
-        TITLE,
+        PREVIEW_TITLE if effective_preview_mode else POC_TITLE,
         url=str(INDEX_PATH),
         js_api=api,
         width=WINDOW_WIDTH,
@@ -898,6 +1173,7 @@ def main() -> int:
         print("pywebview 未能创建窗口。", file=sys.stderr)
         return 2
     controller.attach(window)
+    window.events.closing += controller.on_closing
     window.events.closed += controller.on_closed
 
     webview.start(
@@ -907,8 +1183,12 @@ def main() -> int:
         private_mode=True,
     )
     if controller.smoke_error:
+        if preview_temporary is not None:
+            preview_temporary.cleanup()
         print(controller.smoke_error, file=sys.stderr)
         return 1
+    if preview_temporary is not None:
+        preview_temporary.cleanup()
     return 0
 
 

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "legacy_progress_migrated": false,
+  "active_book_id": "path_25097f09749c1b2ea56635ae605311e91857d70974b79204c41617a6a3c7512e",
+  "books": {
+    "path_18a7e3039f73c92b79bf6969a80218889d022e966b46fddef99f6718b72ca8a2": {
+      "file_path": "F:\\Reader\\experiments\\webview2-poc\\notebook-web-preview-smoke-0u9f4_7a\\books\\preview-a.txt",
+      "display_title": "preview-a",
+      "format": "txt",
+      "chapter_index": 1,
+      "chapter_title": "第二章 远行",
+      "char_position": 73,
+      "text_length": 169,
+      "last_opened_at": "2026-10-11T12:10:55.628481Z"
+    },
+    "path_25097f09749c1b2ea56635ae605311e91857d70974b79204c41617a6a3c7512e": {
+      "file_path": "F:\\Reader\\experiments\\webview2-poc\\notebook-web-preview-smoke-0u9f4_7a\\books\\preview-b.epub",
+      "display_title": "preview-b",
+      "format": "epub",
+      "chapter_index": 0,
+      "chapter_title": "第一章 夜雨",
+      "char_position": 36,
+      "text_length": 170,
+      "last_opened_at": "2026-10-11T12:10:55.689004Z"
+    }
+  }
+}

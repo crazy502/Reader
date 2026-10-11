@@ -6,7 +6,8 @@ Notebook 的 `reader.loaders.load_novel()` 和 `Novel` / `Chapter` 模型来读�
 TXT/EPUB。
 
 实验不会读取或写入正式的 `bookshelf.json`、`reader_config.json`、
-`work_note.txt`，也不会修改原始小说。书籍和阅读位置只保存在当前 PoC 进程内。
+`work_note.txt`，也不会修改原始小说。性能 PoC 的状态仅在进程内保存；可用测试版
+则使用独立的 `%APPDATA%\Notebook-Web-Preview\`，不会接触正式 Notebook 数据。
 
 ## 环境
 
@@ -28,6 +29,39 @@ cd F:\Reader
 cd F:\Reader
 .\.venv\Scripts\python.exe .\experiments\webview2-poc\poc.py
 ```
+
+## 可用测试版
+
+测试版启动命令：
+
+```powershell
+cd F:\Reader
+.\.venv\Scripts\python.exe .\experiments\webview2-poc\preview.py
+```
+
+测试版提供真实 TXT/EPUB 书架、按书保存的 `char_position`、阅读主题和可编辑工作
+便笺。书架“添加书籍”只建档；点击封面后才解析、完成整本低节点 DOM 构建并恢复
+位置。用户数据固定隔离在：
+
+```text
+%APPDATA%\Notebook-Web-Preview\
+├── bookshelf.json
+├── reader_config.json
+└── work_note.txt
+```
+
+测试版 onefile 构建命令：
+
+```powershell
+cd F:\Reader
+.\.venv\Scripts\pyinstaller.exe --noconfirm --clean `
+  --distpath .\experiments\webview2-poc\dist `
+  --workpath .\experiments\webview2-poc\build `
+  .\experiments\webview2-poc\Notebook-Web-Preview.spec
+```
+
+输出为 `experiments\webview2-poc\dist\Notebook-Web-Preview.exe`，不会覆盖正式
+`Notebook.exe`。
 
 启动默认仍为模拟 `WORK_MODE`。点击“启用悬停阅读”后：
 

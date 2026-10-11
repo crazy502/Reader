@@ -6,13 +6,30 @@
   const bridgeStatus = document.getElementById("pocBridgeStatus");
   const enableHoverButton = document.getElementById("pocEnableHover");
   const bridgeTestButton = document.getElementById("pocBridgeTest");
+  const workNote = document.getElementById("pocWorkNote");
+  const noteStatus = document.getElementById("pocNoteStatus");
+  const t = (key, values) => window.notebookPocI18n.t(key, values);
 
   const pocState = {
     appMode: "work",
     bridgeReady: false,
     bridgeResult: null,
     lastNotification: null,
+    previewEnabled: false,
+    readingTheme: "classic",
+    noteTimer: null,
   };
+
+  function decodeEnvelope(value) {
+    if (typeof value !== "string") return value;
+    if (!value.startsWith("b64:")) return JSON.parse(value);
+    const binary = atob(value.slice(4));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  }
 
   function setStatus(message, state = "pending") {
     bridgeStatus.textContent = message;
@@ -45,12 +62,56 @@
 
   function requireBridge() {
     const api = window.pywebview && window.pywebview.api;
-    if (!api) throw new Error("Python bridge 尚未就绪，请稍后重试。 ");
+    if (!api) throw new Error(t("bridgeUnavailable"));
     return api;
   }
 
+  async function saveWorkNote() {
+    if (!pocState.previewEnabled) return true;
+    window.clearTimeout(pocState.noteTimer);
+    noteStatus.textContent = t("noteSaving");
+    try {
+      const raw = await requireBridge().save_preview_note(workNote.value);
+      decodeEnvelope(raw);
+      noteStatus.textContent = t("noteSaved");
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      noteStatus.textContent = t("noteSaveFailed", { message });
+      return false;
+    }
+  }
+
+  function scheduleWorkNoteSave() {
+    if (!pocState.previewEnabled) return;
+    window.clearTimeout(pocState.noteTimer);
+    noteStatus.textContent = t("noteSaving");
+    pocState.noteTimer = window.setTimeout(() => void saveWorkNote(), 700);
+  }
+
+  function bootstrap(snapshot) {
+    if (!snapshot?.enabled) return false;
+    pocState.previewEnabled = true;
+    pocState.readingTheme = snapshot.reading_theme || "classic";
+    document.body.classList.add("preview-live");
+    workNote.value = snapshot.work_note || "";
+    noteStatus.textContent = t("noteReady");
+    window.notebookPrototype.bootstrapPreview(snapshot);
+    return true;
+  }
+
+  function snapshotForClose() {
+    const reading = window.notebookPhase2?.getCloseSnapshot?.() || {};
+    return {
+      work_note: workNote.value,
+      reading_theme: window.notebookPrototype.getState().theme || pocState.readingTheme,
+      book_id: reading.book_id || null,
+      char_position: Number(reading.char_position) || 0,
+    };
+  }
+
   async function runBridgeTest() {
-    setStatus("正在进行异步通信…", "pending");
+    setStatus(t("bridgeTesting"), "pending");
     try {
       const api = requireBridge();
       const [ping, info] = await Promise.all([
@@ -59,19 +120,19 @@
       ]);
       pocState.bridgeResult = { ping, info };
       const backend = info.renderer || "unknown";
-      setStatus(`通信正常 · ${backend} · ${ping.reply}`, "ok");
+      setStatus(t("bridgeOkay", { backend, reply: ping.reply }), "ok");
       return pocState.bridgeResult;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       pocState.bridgeResult = { error: message };
-      setStatus(`通信失败：${message}`, "error");
+      setStatus(t("bridgeFailed", { message }), "error");
       return pocState.bridgeResult;
     }
   }
 
   function onPythonNotification(payload) {
     pocState.lastNotification = payload;
-    const message = payload && payload.message ? payload.message : "收到 Python 主动通知";
+    const message = payload && payload.message ? payload.message : t("pythonNotification");
     setStatus(message, payload && payload.ok === false ? "error" : "ok");
     return true;
   }
@@ -95,7 +156,7 @@
     const readerMenu = document.getElementById("readerMenu");
     results.readerMenu = !readerMenu.hidden;
     const themeChoices = [...document.querySelectorAll(".theme-choice")];
-    themeChoices.find((button) => button.getAttribute("aria-label") === "护眼绿")?.click();
+    themeChoices.find((button) => button.getAttribute("aria-label") === t("themeEyeCare"))?.click();
     results.theme = document.getElementById("bookPage").dataset.theme === "eye_care";
 
     const readingScroll = document.getElementById("readingScroll");
@@ -117,13 +178,22 @@
     setAppMode,
   };
 
+  window.notebookPreview = {
+    bootstrap,
+    saveWorkNote,
+    snapshotForClose,
+  };
+
+  workNote.addEventListener("input", scheduleWorkNoteSave);
+
   enableHoverButton.addEventListener("click", async () => {
     try {
+      await saveWorkNote();
       const result = await requireBridge().enable_hover_reading();
-      setStatus(result.message || "悬停阅读已启用", "ok");
+      setStatus(result.message || t("hoverEnabledFallback"), "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setStatus(`无法启用悬停阅读：${message}`, "error");
+      setStatus(t("hoverEnableFailed", { message }), "error");
     }
   });
 
@@ -133,18 +203,19 @@
     if (!(event.altKey && event.key.toLowerCase() === "q")) return;
     event.preventDefault();
     setAppMode("work", "alt-q");
+    void saveWorkNote();
     try {
       requireBridge()
         .disable_hover_reading()
-        .then((result) => setStatus(result.message || "已退出悬停阅读", "ok"))
-        .catch((error) => setStatus(`Alt+Q 通信失败：${String(error)}`, "error"));
+        .then((result) => setStatus(result.message || t("hoverDisabledFallback"), "ok"))
+        .catch((error) => setStatus(t("altQFailed", { message: String(error) }), "error"));
     } catch (error) {
-      setStatus(`Alt+Q 通信失败：${String(error)}`, "error");
+      setStatus(t("altQFailed", { message: String(error) }), "error");
     }
   });
 
   window.addEventListener("pywebviewready", () => {
     pocState.bridgeReady = true;
-    setStatus("Python bridge 已就绪", "ok");
+    setStatus(t("bridgeReady"), "ok");
   });
 })();
