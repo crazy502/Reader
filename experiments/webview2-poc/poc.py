@@ -324,6 +324,8 @@ class PocController:
         self._probe: NativeWindowProbe | None = None
         self._dialog_depth = 0
         self._dialog_guard_until = 0.0
+        self._close_save_started = False
+        self._allow_close = False
         self._library = ExperimentLibrary()
         self._preview = PreviewStorage(preview_data_dir) if preview_mode else None
         self._preview_library_ids: dict[str, str] = {}
@@ -383,24 +385,50 @@ class PocController:
     def on_closed(self) -> None:
         self._stop.set()
 
-    def on_closing(self) -> None:
-        """Synchronously capture the latest anchors before WebView destruction."""
+    def on_closing(self) -> bool | None:
+        """Defer the first close until the WebView snapshot is safely persisted."""
         if not self.preview_mode or self._preview is None:
+            self._stop.set()
             return
+
+        with self._lock:
+            if self._allow_close:
+                self._stop.set()
+                return None
+            if self._close_save_started:
+                return False
+            self._close_save_started = True
+
+        threading.Thread(
+            target=self._save_snapshot_and_close,
+            name="preview-close-save",
+            daemon=True,
+        ).start()
+        return False
+
+    def _save_snapshot_and_close(self) -> None:
         try:
             snapshot = self._evaluate("window.notebookPreview.snapshotForClose()")
-            if not isinstance(snapshot, dict):
-                return
-            self._preview.save_note(str(snapshot.get("work_note", "")))
-            theme = snapshot.get("reading_theme")
-            if isinstance(theme, str):
-                self._preview.save_theme(theme)
-            book_id = snapshot.get("book_id")
-            position = snapshot.get("char_position")
-            if isinstance(book_id, str) and isinstance(position, (int, float)):
-                self.save_position(book_id, int(position))
+            if isinstance(snapshot, dict) and self._preview is not None:
+                self._preview.save_note(str(snapshot.get("work_note", "")))
+                theme = snapshot.get("reading_theme")
+                if isinstance(theme, str):
+                    self._preview.save_theme(theme)
+                book_id = snapshot.get("book_id")
+                position = snapshot.get("char_position")
+                if isinstance(book_id, str) and isinstance(position, (int, float)):
+                    self.save_position(book_id, int(position))
         except Exception:
             logging.exception("关闭测试版时保存最终状态失败")
+        finally:
+            with self._lock:
+                self._allow_close = True
+            self._stop.set()
+            if self.window is not None:
+                try:
+                    self.window.destroy()
+                except Exception:
+                    logging.exception("保存最终状态后关闭测试版失败")
 
     def app_info(self) -> dict[str, Any]:
         return {

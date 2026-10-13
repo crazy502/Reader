@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import threading
 
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,18 @@ if str(EXPERIMENT_ROOT) not in sys.path:
 
 from poc import PocController
 from preview_storage import PreviewStorage
+
+
+class _CloseWindowStub:
+    def __init__(self, snapshot: dict[str, object]) -> None:
+        self.snapshot = snapshot
+        self.destroyed = threading.Event()
+
+    def evaluate_js(self, _script: str) -> dict[str, object]:
+        return self.snapshot
+
+    def destroy(self) -> None:
+        self.destroyed.set()
 
 
 def _write_book(path: Path, label: str) -> Path:
@@ -62,3 +75,32 @@ def test_two_preview_books_keep_independent_positions_after_restart(
     assert restored.record(first["book_id"]).char_position == 11
     assert restored.record(second["book_id"]).char_position == 29
     assert restored.state.active_book_id == second["book_id"]
+
+
+def test_close_defers_webview_destruction_until_snapshot_is_saved(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "preview"
+    controller = PocController(preview_mode=True, preview_data_dir=data_dir)
+    assert controller._preview is not None
+    record = controller._preview.add_book(_write_book(tmp_path / "close.txt", "关闭"))
+    controller.prepare_preview_book(record["book_id"])
+    controller.commit_preview_book(record["book_id"])
+    window = _CloseWindowStub(
+        {
+            "work_note": "关闭前便笺🙂",
+            "reading_theme": "eye_care",
+            "book_id": record["book_id"],
+            "char_position": 17,
+        }
+    )
+    controller.attach(window)  # type: ignore[arg-type]
+
+    assert controller.on_closing() is False
+    assert window.destroyed.wait(2)
+    assert controller.on_closing() is None
+
+    restored = PreviewStorage(data_dir)
+    assert restored.snapshot()["work_note"] == "关闭前便笺🙂"
+    assert restored.reading_theme == "eye_care"
+    assert restored.record(record["book_id"]).char_position == 17
