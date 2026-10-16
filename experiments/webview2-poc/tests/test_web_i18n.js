@@ -14,8 +14,10 @@ const messagesSource = fs.readFileSync(
 const checkedFiles = [
   path.join(root, "web", "index.html"),
   path.join(root, "web", "app.js"),
+  path.join(root, "web", "prototype-app.js"),
   path.join(root, "web", "poc.js"),
   path.join(root, "web", "reader-engine.js"),
+  path.join(root, "web", "reader-benchmark.js"),
 ];
 
 function catalogueFor(language) {

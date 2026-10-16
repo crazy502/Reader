@@ -10,12 +10,8 @@ for path in (EXPERIMENT_ROOT, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from novel_engine import (  # noqa: E402
-    ExperimentLibrary,
-    build_chunked_fragments,
-    build_whole_fragments,
-    generate_synthetic_text,
-)
+from benchmark_engine import build_whole_fragments, generate_synthetic_text  # noqa: E402
+from novel_engine import ExperimentLibrary, build_chunked_fragments  # noqa: E402
 from reader.core.novel_parser import Chapter, Novel  # noqa: E402
 from reader.loaders import load_novel  # noqa: E402
 from sample_data import SAMPLE_CHAPTERS, write_generated_epub, write_generated_txt  # noqa: E402

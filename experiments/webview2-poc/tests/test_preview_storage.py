@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 
 import pytest
@@ -18,6 +20,30 @@ def _book(path: Path, content: str = "第一章 开始\n正文") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path
+
+
+def test_import_does_not_create_formal_reader_data_dir(tmp_path: Path) -> None:
+    appdata = tmp_path / "roaming"
+    appdata.mkdir()
+    environment = os.environ.copy()
+    environment["APPDATA"] = str(appdata)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    environment.pop("NOTEBOOK_WEB_PREVIEW_DATA_DIR", None)
+    source = (
+        "import sys; "
+        "sys.frozen = True; "
+        f"sys.path.insert(0, {str(EXPERIMENT_ROOT)!r}); "
+        "import preview_storage"
+    )
+
+    subprocess.run(
+        [sys.executable, "-B", "-c", source],
+        check=True,
+        cwd=EXPERIMENT_ROOT,
+        env=environment,
+    )
+
+    assert list(appdata.iterdir()) == []
 
 
 def test_preview_storage_isolated_snapshot_and_defaults(tmp_path: Path) -> None:

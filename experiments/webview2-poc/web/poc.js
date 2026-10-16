@@ -101,7 +101,7 @@
   }
 
   function snapshotForClose() {
-    const reading = window.notebookPhase2?.getCloseSnapshot?.() || {};
+    const reading = window.notebookReader?.getCloseSnapshot?.() || {};
     return {
       work_note: workNote.value,
       reading_theme: window.notebookPrototype.getState().theme || pocState.readingTheme,

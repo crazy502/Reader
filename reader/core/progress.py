@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 
-from .config import DEFAULT_READING_THEME, normalize_reading_theme
+from .reading_theme import DEFAULT_READING_THEME, normalize_reading_theme
 
 
 _READING_THEME_KEY = "reading_theme"

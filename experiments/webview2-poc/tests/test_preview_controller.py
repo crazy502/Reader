@@ -9,7 +9,7 @@ EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
 if str(EXPERIMENT_ROOT) not in sys.path:
     sys.path.insert(0, str(EXPERIMENT_ROOT))
 
-from poc import PocController
+from poc import PocController, PreviewApi
 from preview_storage import PreviewStorage
 
 
@@ -31,6 +31,16 @@ def _write_book(path: Path, label: str) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def test_preview_api_does_not_expose_experiment_endpoints(tmp_path: Path) -> None:
+    api = PreviewApi(
+        PocController(preview_mode=True, preview_data_dir=tmp_path / "preview")
+    )
+
+    assert not hasattr(api, "prepare_synthetic_book")
+    assert not hasattr(api, "get_process_metrics")
+    assert not hasattr(api, "prepare_generated_format_samples")
 
 
 def test_prepare_does_not_activate_until_complete_build_is_committed(
