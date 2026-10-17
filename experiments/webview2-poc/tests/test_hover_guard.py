@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-import sys
-
-
-EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
-if str(EXPERIMENT_ROOT) not in sys.path:
-    sys.path.insert(0, str(EXPERIMENT_ROOT))
-
-from poc import ENTER_DELAY_SECONDS, PocController  # noqa: E402
+from reader.webview.controller import ENTER_DELAY_SECONDS, WebViewController
 
 
 def test_pointer_enter_waits_but_pointer_exit_is_immediate() -> None:
-    controller = PocController()
+    controller = WebViewController()
     controller.hover_reading_enabled = True
     controller.app_mode = "work"
 
@@ -29,7 +21,7 @@ def test_pointer_enter_waits_but_pointer_exit_is_immediate() -> None:
 
 
 def test_dialog_guard_suppresses_hover_transitions_and_resets_enter_timer() -> None:
-    controller = PocController()
+    controller = WebViewController()
     controller.hover_reading_enabled = True
     controller.app_mode = "work"
 

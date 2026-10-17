@@ -1,16 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 import threading
 
-
-EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
-if str(EXPERIMENT_ROOT) not in sys.path:
-    sys.path.insert(0, str(EXPERIMENT_ROOT))
-
-from poc import PocController, PreviewApi
-from preview_storage import PreviewStorage
+from reader.webview.controller import WebViewApi, WebViewController
+from reader.webview.storage import PreviewStorage
 
 
 class _CloseWindowStub:
@@ -34,8 +28,8 @@ def _write_book(path: Path, label: str) -> Path:
 
 
 def test_preview_api_does_not_expose_experiment_endpoints(tmp_path: Path) -> None:
-    api = PreviewApi(
-        PocController(preview_mode=True, preview_data_dir=tmp_path / "preview")
+    api = WebViewApi(
+        WebViewController(preview_mode=True, preview_data_dir=tmp_path / "preview")
     )
 
     assert not hasattr(api, "prepare_synthetic_book")
@@ -46,14 +40,14 @@ def test_preview_api_does_not_expose_experiment_endpoints(tmp_path: Path) -> Non
 def test_prepare_does_not_activate_until_complete_build_is_committed(
     tmp_path: Path,
 ) -> None:
-    controller = PocController(
+    controller = WebViewController(
         preview_mode=True, preview_data_dir=tmp_path / "preview"
     )
     assert controller._preview is not None
     record = controller._preview.add_book(_write_book(tmp_path / "one.txt", "甲"))
 
     metadata = controller.prepare_preview_book(record["book_id"])
-    payload = controller.render_payload(record["book_id"], "chunked")
+    payload = controller.render_payload(record["book_id"])
 
     assert controller._preview.state.active_book_id is None
     assert metadata["book_id"] == record["book_id"]
@@ -70,7 +64,7 @@ def test_two_preview_books_keep_independent_positions_after_restart(
     tmp_path: Path,
 ) -> None:
     data_dir = tmp_path / "preview"
-    controller = PocController(preview_mode=True, preview_data_dir=data_dir)
+    controller = WebViewController(preview_mode=True, preview_data_dir=data_dir)
     assert controller._preview is not None
     first = controller._preview.add_book(_write_book(tmp_path / "a.txt", "甲"))
     second = controller._preview.add_book(_write_book(tmp_path / "b.txt", "乙"))
@@ -91,7 +85,7 @@ def test_close_defers_webview_destruction_until_snapshot_is_saved(
     tmp_path: Path,
 ) -> None:
     data_dir = tmp_path / "preview"
-    controller = PocController(preview_mode=True, preview_data_dir=data_dir)
+    controller = WebViewController(preview_mode=True, preview_data_dir=data_dir)
     assert controller._preview is not None
     record = controller._preview.add_book(_write_book(tmp_path / "close.txt", "关闭"))
     controller.prepare_preview_book(record["book_id"])

@@ -9,11 +9,13 @@ import sys
 import pytest
 
 
-EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
-if str(EXPERIMENT_ROOT) not in sys.path:
-    sys.path.insert(0, str(EXPERIMENT_ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-from preview_storage import PreviewStorage, PreviewStorageError, resolve_preview_data_dir
+from reader.webview.storage import (
+    PreviewStorage,
+    PreviewStorageError,
+    resolve_preview_data_dir,
+)
 
 
 def _book(path: Path, content: str = "第一章 开始\n正文") -> Path:
@@ -32,14 +34,14 @@ def test_import_does_not_create_formal_reader_data_dir(tmp_path: Path) -> None:
     source = (
         "import sys; "
         "sys.frozen = True; "
-        f"sys.path.insert(0, {str(EXPERIMENT_ROOT)!r}); "
-        "import preview_storage"
+        f"sys.path.insert(0, {str(PROJECT_ROOT)!r}); "
+        "import reader.webview.storage"
     )
 
     subprocess.run(
         [sys.executable, "-B", "-c", source],
         check=True,
-        cwd=EXPERIMENT_ROOT,
+        cwd=PROJECT_ROOT,
         env=environment,
     )
 

@@ -5,7 +5,7 @@ Notebook 是一款面向 Windows 的轻量本地小说阅读器，支持 TXT 和
 项目目前同时保留两个可运行版本：
 
 - **Tkinter 正式版**：稳定使用中的主版本，入口为 `main.py`。
-- **WebView2 Preview**：位于 `experiments/webview2-poc/` 的独立测试版本，入口为 `preview.py`。它已接入真实 TXT/EPUB、持久化和独立 EXE 打包，但尚未替代正式版。
+- **WebView2 Preview**：生产实现位于 `reader/webview/`，并在 `experiments/webview2-poc/` 保留兼容入口、历史 PoC 和 benchmark。它已接入真实 TXT/EPUB、持久化和独立 EXE 打包，但尚未替代正式版。
 
 ## 核心设计
 
@@ -57,7 +57,7 @@ mode
 | 项目 | Tkinter 正式版 | WebView2 Preview |
 | --- | --- | --- |
 | 状态 | 当前正式版本 | 独立测试版本，尚未替代正式版 |
-| 源码入口 | `main.py` | `experiments/webview2-poc/preview.py` |
+| 源码入口 | `main.py` | `python -m reader.webview`；旧 `preview.py` 作为兼容入口保留 |
 | UI 技术 | Python 标准库 + Tkinter | Python + pywebview + Microsoft Edge WebView2 |
 | 正文渲染 | 单个持久化 `tk.Text` | WebView2 中的连续 DOM；默认使用分块插入策略 |
 | 书架添加 | 当前会导入并直接打开正文 | 只加入书架，点击封面后才解析并打开 |
@@ -67,7 +67,7 @@ mode
 | 打包配置 | onedir 与 onefile | 独立 onefile |
 | 用户数据 | 源码运行使用 `data\`；EXE 使用 `%APPDATA%\Reader` | 正常运行使用 `%APPDATA%\Notebook-Web-Preview` |
 
-Preview 复用正式版的 TXT/EPUB loader 和 `Novel` / `Chapter` 数据模型，但拥有独立的界面、存储目录和可执行文件。实验实现与验证细节见 [WebView2 Preview 说明](experiments/webview2-poc/README.md)。
+Preview 复用正式版的 TXT/EPUB loader 和 `Novel` / `Chapter` 数据模型，但拥有独立的界面、存储目录和可执行文件。历史实验与验证细节见 [WebView2 Preview 说明](experiments/webview2-poc/README.md)。
 
 ## 运行环境与依赖
 
@@ -113,8 +113,10 @@ python .\main.py
 启动 WebView2 Preview：
 
 ```powershell
-python .\experiments\webview2-poc\preview.py
+python -m reader.webview
 ```
+
+旧入口 `python .\experiments\webview2-poc\preview.py` 仍可使用；不带实验参数时会转到同一套正式 WebView2 生产实现。
 
 如果使用仓库内的 `.venv`，可将上述 `python` 替换为 `.\.venv\Scripts\python.exe`。
 
@@ -204,15 +206,15 @@ Reader/
 │  ├─ core/                       书架、进度、配置、便笺和小说模型
 │  ├─ loaders/                    TXT/EPUB 加载
 │  ├─ ui/                         Tkinter 阅读、书架和工作便笺界面
+│  ├─ webview/                    WebView2 控制器、存储、正文引擎与网页资源
 │  ├─ platform/                   Windows DPI 与 Tcl/Tk 运行时适配
 │  └─ i18n/                       正式版中英文界面文案
 ├─ experiments/webview2-poc/
-│  ├─ preview.py                  WebView2 Preview 入口
-│  ├─ poc.py                      Python/WebView2 bridge 与窗口控制
-│  ├─ novel_engine.py             Preview 阅读数据与渲染 payload
-│  ├─ preview_storage.py          Preview 独立持久化
-│  ├─ web/                        HTML、CSS、JavaScript 前端
-│  ├─ tests/                      Preview 专用检查
+│  ├─ preview.py                  旧 Preview 兼容入口
+│  ├─ poc.py                      历史 PoC/benchmark 兼容控制器
+│  ├─ benchmark_engine.py         模拟书籍与历史渲染 benchmark
+│  ├─ web/                        历史实验网页资源
+│  ├─ tests/                      WebView2 与兼容层检查
 │  └─ Notebook-Web-Preview.spec   Preview onefile 配置
 ├─ prototypes/kindle-reader/      阅读界面的视觉参考原型
 ├─ tests/                         Tkinter 正式版测试
@@ -225,7 +227,8 @@ Reader/
 
 ## 当前状态与限制
 
-- Tkinter 版本仍是正式入口；WebView2 Preview 是用于真实使用体验和技术验证的测试版本，没有正式数据迁移方案。
+- Tkinter 版本仍是根入口和正式版本；WebView2 的生产代码虽已迁入 `reader/webview/`，目前仍作为 Preview 用于真实使用体验和技术验证，没有正式数据迁移方案。
+- 现有 `Notebook-Web-Preview.spec` 仍位于实验目录并保留原打包资源布局；本轮未迁移或修改打包配置。
 - 当前仅支持 TXT 和 EPUB，不支持 DRM EPUB、MOBI 或 AZW3。
 - EPUB 会被转换为连续纯文本，不还原原始 CSS、图片、字体、复杂脚注、多栏或固定版式。
 - 非规范 EPUB 或同一 XHTML 内含复杂目录锚点时，章节可能回退为文档级划分。

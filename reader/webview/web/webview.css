@@ -50,8 +50,7 @@
   font-size: 10px;
 }
 
-.poc-work-footer button,
-.poc-bridge-panel button {
+.poc-work-footer button {
   border: 0;
   border-radius: 5px;
   background: transparent;
@@ -65,34 +64,9 @@
   padding: 7px 9px;
 }
 
-.poc-work-footer button:hover,
-.poc-bridge-panel button:hover {
+.poc-work-footer button:hover {
   background: #e8e8e8;
   color: #252525;
-}
-
-.poc-bridge-panel {
-  position: absolute;
-  z-index: 130;
-  right: 10px;
-  bottom: 30px;
-  display: flex;
-  max-width: calc(100% - 20px);
-  min-height: 30px;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 6px 5px 9px;
-  border: 1px solid rgba(52, 49, 44, 0.16);
-  border-radius: 7px;
-  background: rgba(255, 254, 250, 0.94);
-  box-shadow: 0 5px 18px rgba(42, 38, 32, 0.1);
-  color: #6d675e;
-  font-size: 10px;
-}
-
-body.preview-live .poc-bridge-panel,
-body.preview-live .poc-reader-lab {
-  display: none;
 }
 
 .preview-reader-loading {
@@ -152,51 +126,10 @@ body.preview-live .poc-reader-lab {
   to { transform: rotate(360deg); }
 }
 
-.prototype-shell[data-app-mode="work"] .poc-bridge-panel {
-  bottom: 52px;
-}
-
-.poc-status-dot {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #b5afa5;
-}
-
-.poc-bridge-panel[data-state="ok"] .poc-status-dot {
-  background: #6f9470;
-}
-
-.poc-bridge-panel[data-state="error"] .poc-status-dot {
-  background: #a85c55;
-}
-
-#pocBridgeStatus {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.poc-bridge-panel button {
-  flex: 0 0 auto;
-  padding: 4px 6px;
-  color: #4c4842;
-}
-
 @media (max-width: 520px) {
   .poc-work-footer > span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .poc-bridge-panel {
-    left: 10px;
-    justify-content: flex-end;
-  }
-
-  #pocBridgeStatus {
-    margin-right: auto;
   }
 }

@@ -2,10 +2,7 @@
   "use strict";
 
   const shell = document.getElementById("appShell");
-  const bridgePanel = document.querySelector(".poc-bridge-panel");
-  const bridgeStatus = document.getElementById("pocBridgeStatus");
   const enableHoverButton = document.getElementById("pocEnableHover");
-  const bridgeTestButton = document.getElementById("pocBridgeTest");
   const workNote = document.getElementById("pocWorkNote");
   const noteStatus = document.getElementById("pocNoteStatus");
   const t = (key, values) => window.notebookPocI18n.t(key, values);
@@ -13,7 +10,6 @@
   const pocState = {
     appMode: "work",
     bridgeReady: false,
-    bridgeResult: null,
     lastNotification: null,
     previewEnabled: false,
     readingTheme: "classic",
@@ -29,12 +25,6 @@
       bytes[index] = binary.charCodeAt(index);
     }
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-  }
-
-  function setStatus(message, state = "pending") {
-    bridgeStatus.textContent = message;
-    bridgePanel.dataset.state = state;
-    bridgePanel.title = message;
   }
 
   function setAppMode(mode, source = "python") {
@@ -53,7 +43,7 @@
         ? "book"
         : "shelf",
       bridgeReady: pocState.bridgeReady,
-      bridgeState: bridgePanel.dataset.state || "pending",
+      bridgeState: pocState.bridgeReady ? "ready" : "pending",
       readingScrollTop: Math.round(readingScroll.scrollTop),
       viewport: { width: window.innerWidth, height: window.innerHeight },
       userAgent: navigator.userAgent,
@@ -110,71 +100,15 @@
     };
   }
 
-  async function runBridgeTest() {
-    setStatus(t("bridgeTesting"), "pending");
-    try {
-      const api = requireBridge();
-      const [ping, info] = await Promise.all([
-        api.ping("hello-from-javascript"),
-        api.get_app_info(),
-      ]);
-      pocState.bridgeResult = { ping, info };
-      const backend = info.renderer || "unknown";
-      setStatus(t("bridgeOkay", { backend, reply: ping.reply }), "ok");
-      return pocState.bridgeResult;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      pocState.bridgeResult = { error: message };
-      setStatus(t("bridgeFailed", { message }), "error");
-      return pocState.bridgeResult;
-    }
-  }
-
   function onPythonNotification(payload) {
     pocState.lastNotification = payload;
-    const message = payload && payload.message ? payload.message : t("pythonNotification");
-    setStatus(message, payload && payload.ok === false ? "error" : "ok");
     return true;
-  }
-
-  function runPrototypeSmoke() {
-    const results = {};
-    document.getElementById("backToShelf").click();
-    results.bookshelf = document.getElementById("bookshelfPage").classList.contains("is-active");
-
-    const firstCover = document.querySelector(".book-cover");
-    firstCover?.click();
-    results.openBook = document.getElementById("bookPage").classList.contains("is-active");
-
-    document.getElementById("chapterTrigger").click();
-    const chapterPanel = document.getElementById("chapterPanel");
-    results.chapterPanel = !chapterPanel.hidden;
-    document.querySelector(".chapter-item")?.click();
-    results.chapterJump = chapterPanel.hidden;
-
-    document.getElementById("readerMenuButton").click();
-    const readerMenu = document.getElementById("readerMenu");
-    results.readerMenu = !readerMenu.hidden;
-    const themeChoices = [...document.querySelectorAll(".theme-choice")];
-    themeChoices.find((button) => button.getAttribute("aria-label") === t("themeEyeCare"))?.click();
-    results.theme = document.getElementById("bookPage").dataset.theme === "eye_care";
-
-    const readingScroll = document.getElementById("readingScroll");
-    readingScroll.scrollTop = 360;
-    readingScroll.dispatchEvent(new Event("scroll"));
-    results.continuousScroll =
-      readingScroll.scrollHeight > readingScroll.clientHeight && readingScroll.scrollTop > 0;
-    results.allPassed = Object.values(results).every(Boolean);
-    return results;
   }
 
   window.notebookPoc = {
     getState,
-    getBridgeResult: () => pocState.bridgeResult,
     getLastNotification: () => pocState.lastNotification,
     onPythonNotification,
-    runBridgeTest,
-    runPrototypeSmoke,
     setAppMode,
   };
 
@@ -189,15 +123,12 @@
   enableHoverButton.addEventListener("click", async () => {
     try {
       await saveWorkNote();
-      const result = await requireBridge().enable_hover_reading();
-      setStatus(result.message || t("hoverEnabledFallback"), "ok");
+      await requireBridge().enable_hover_reading();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setStatus(t("hoverEnableFailed", { message }), "error");
+      console.error(t("hoverEnableFailed", { message }));
     }
   });
-
-  bridgeTestButton.addEventListener("click", runBridgeTest);
 
   document.addEventListener("keydown", (event) => {
     if (!(event.altKey && event.key.toLowerCase() === "q")) return;
@@ -205,17 +136,15 @@
     setAppMode("work", "alt-q");
     void saveWorkNote();
     try {
-      requireBridge()
-        .disable_hover_reading()
-        .then((result) => setStatus(result.message || t("hoverDisabledFallback"), "ok"))
-        .catch((error) => setStatus(t("altQFailed", { message: String(error) }), "error"));
+      requireBridge().disable_hover_reading().catch((error) => {
+        console.error(t("altQFailed", { message: String(error) }));
+      });
     } catch (error) {
-      setStatus(t("altQFailed", { message: String(error) }), "error");
+      console.error(t("altQFailed", { message: String(error) }));
     }
   });
 
   window.addEventListener("pywebviewready", () => {
     pocState.bridgeReady = true;
-    setStatus(t("bridgeReady"), "ok");
   });
 })();
