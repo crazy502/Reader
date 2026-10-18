@@ -1,1 +1,1 @@
-"""Core parsing, configuration, and persistence modules."""
+"""Core parsing and persistence modules shared by Notebook."""

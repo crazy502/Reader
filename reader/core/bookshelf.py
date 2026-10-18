@@ -10,8 +10,6 @@ import os
 from pathlib import Path
 import tempfile
 
-from .progress import ReadingProgress
-
 
 SCHEMA_VERSION = 1
 SUPPORTED_FORMATS = {"txt", "epub"}
@@ -49,7 +47,6 @@ class BookshelfState:
     """The complete bookshelf file persisted under USER_DATA_DIR."""
 
     schema_version: int = SCHEMA_VERSION
-    legacy_progress_migrated: bool = False
     active_book_id: str | None = None
     books: dict[str, BookRecord] = field(default_factory=dict)
 
@@ -191,43 +188,6 @@ def books_by_recent_activity(state: BookshelfState) -> list[BookRecord]:
     )
 
 
-def migrate_legacy_progress(
-    state: BookshelfState,
-    progress: ReadingProgress | None,
-    migrated_at: str | None = None,
-) -> bool:
-    """Import the old single-book position exactly once.
-
-    The legacy config remains untouched.  The persisted marker prevents a removed
-    migrated book from being recreated on a later startup.
-    """
-    if state.legacy_progress_migrated:
-        return False
-    state.legacy_progress_migrated = True
-    if progress is None or not progress.file_path:
-        return True
-    try:
-        existing = state.find_by_path(progress.file_path)
-        if existing is None:
-            absolute_path = absolute_book_path(progress.file_path)
-            book_id = _available_book_id(state, absolute_path)
-            existing = BookRecord(
-                book_id=book_id,
-                file_path=absolute_path,
-                display_title=Path(absolute_path).stem,
-                file_format=book_format_for_path(absolute_path),
-                chapter_index=max(0, progress.chapter_index),
-                char_position=max(0, progress.char_position),
-                last_opened_at=migrated_at or utc_now_iso(),
-            )
-            state.books[book_id] = existing
-        state.active_book_id = existing.book_id
-    except BookshelfError:
-        # Invalid legacy paths are considered migrated but are not added.
-        pass
-    return True
-
-
 def load_bookshelf(path: Path) -> BookshelfState:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -248,7 +208,6 @@ def load_bookshelf(path: Path) -> BookshelfState:
         active_book_id = None
     return BookshelfState(
         schema_version=SCHEMA_VERSION,
-        legacy_progress_migrated=raw.get("legacy_progress_migrated") is True,
         active_book_id=active_book_id,
         books=books,
     )
@@ -291,7 +250,6 @@ def save_bookshelf(path: Path, state: BookshelfState) -> bool:
 def _state_to_json(state: BookshelfState) -> dict[str, object]:
     return {
         "schema_version": SCHEMA_VERSION,
-        "legacy_progress_migrated": state.legacy_progress_migrated,
         "active_book_id": state.active_book_id,
         "books": {
             book_id: {

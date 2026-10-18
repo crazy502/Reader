@@ -1,4 +1,4 @@
-"""Small message catalog used by the Tkinter UI."""
+"""Shared messages used by the novel loaders and core modules."""
 
 from .zh_CN import MESSAGES
 

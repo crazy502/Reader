@@ -1,4 +1,4 @@
-.poc-work-mode {
+.work-mode {
   position: absolute;
   z-index: 100;
   inset: 0;
@@ -9,23 +9,23 @@
   font-family: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
 }
 
-.prototype-shell[data-app-mode="work"] .poc-work-mode {
+.app-shell[data-app-mode="work"] .work-mode {
   display: grid;
 }
 
-.poc-work-header {
+.work-header {
   padding: 16px 18px 12px;
   border-bottom: 1px solid #dedede;
   background: #f5f5f5;
 }
 
-.poc-work-header h1 {
+.work-header h1 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
 }
 
-.poc-work-mode textarea {
+.work-mode textarea {
   width: 100%;
   min-height: 0;
   padding: 18px;
@@ -37,7 +37,7 @@
   font: 14px/1.75 "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
 }
 
-.poc-work-footer {
+.work-footer {
   display: flex;
   min-height: 42px;
   align-items: center;
@@ -50,7 +50,7 @@
   font-size: 10px;
 }
 
-.poc-work-footer button {
+.work-footer button {
   border: 0;
   border-radius: 5px;
   background: transparent;
@@ -59,17 +59,17 @@
   font: inherit;
 }
 
-.poc-work-footer button {
+.work-footer button {
   flex: 0 0 auto;
   padding: 7px 9px;
 }
 
-.poc-work-footer button:hover {
+.work-footer button:hover {
   background: #e8e8e8;
   color: #252525;
 }
 
-.preview-reader-loading {
+.reader-loading {
   position: absolute;
   z-index: 90;
   inset: 0;
@@ -79,7 +79,7 @@
   color: var(--reader-fg);
 }
 
-.preview-reader-loading-card {
+.reader-loading-card {
   display: grid;
   width: min(310px, calc(100% - 48px));
   justify-items: center;
@@ -87,27 +87,27 @@
   text-align: center;
 }
 
-.preview-reader-loading-card strong {
+.reader-loading-card strong {
   font-family: Georgia, "Songti SC", SimSun, serif;
   font-size: 17px;
   font-weight: 600;
 }
 
-.preview-reader-loading-card > span:not(.preview-reader-loading-mark) {
+.reader-loading-card > span:not(.reader-loading-mark) {
   color: var(--reader-secondary);
   font-size: 11px;
 }
 
-.preview-reader-loading-mark {
+.reader-loading-mark {
   width: 22px;
   height: 22px;
   border: 2px solid color-mix(in srgb, var(--reader-fg) 18%, transparent);
   border-top-color: color-mix(in srgb, var(--reader-fg) 72%, transparent);
   border-radius: 50%;
-  animation: preview-reader-spin 900ms linear infinite;
+  animation: reader-spin 900ms linear infinite;
 }
 
-.preview-reader-loading-card button {
+.reader-loading-card button {
   margin-top: 8px;
   padding: 6px 10px;
   border: 0;
@@ -118,16 +118,16 @@
   font: 11px/1.4 system-ui, "Microsoft YaHei UI", sans-serif;
 }
 
-.preview-reader-loading-card button:hover {
+.reader-loading-card button:hover {
   background: color-mix(in srgb, var(--reader-fg) 6%, transparent);
 }
 
-@keyframes preview-reader-spin {
+@keyframes reader-spin {
   to { transform: rotate(360deg); }
 }
 
 @media (max-width: 520px) {
-  .poc-work-footer > span {
+  .work-footer > span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

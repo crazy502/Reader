@@ -1,2 +1,1 @@
-# Runtime dependencies: none.
-# Tkinter is included with the standard Windows CPython installer.
+pywebview==6.2.1

@@ -15,10 +15,9 @@ env/
 .idea/
 .vscode/
 
-# Reader runtime data
-data/reader_config.json
-data/bookshelf.json
-data/work_note.txt
+# Local runtime data
+data/*
+!data/.gitkeep
 
 # Build output
 build/
@@ -30,8 +29,8 @@ dist/
 *.tmp
 
 # Local book files
-book/*.txt
-book/*.epub
+book/*
+!book/.gitkeep
 
 # Operating system files
 Thumbs.db

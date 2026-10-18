@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const mapping = require("../web/char-position.js");
+const mapping = require("../reader/webview/web/char-position.js");
 
 const samples = [
   "普通中文\n空格  缩进",
@@ -25,7 +25,6 @@ test("Python code-point offsets round-trip through DOM UTF-16 offsets", () => {
 
 test("UTF-16 offsets inside surrogate pairs clamp backward", () => {
   const sample = "前🙂后";
-  assert.equal(sample.length, 4);
   assert.equal(mapping.utf16ToCodePointOffset(sample, 1), 1);
   assert.equal(mapping.utf16ToCodePointOffset(sample, 2), 1);
   assert.equal(mapping.utf16ToCodePointOffset(sample, 3), 2);

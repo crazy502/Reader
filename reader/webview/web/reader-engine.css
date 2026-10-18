@@ -1,14 +1,14 @@
-.poc-reader-document {
+.reader-document {
   white-space: pre-wrap;
 }
 
-.poc-reader-fragment {
+.reader-fragment {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.poc-reader-fragment-heading {
+.reader-fragment-heading {
   margin: 70px 0 28px;
   padding: 0;
   font-size: calc(var(--reader-font-size) * 1.2);
@@ -18,6 +18,6 @@
   text-align: left;
 }
 
-.poc-reader-fragment-heading:first-child {
+.reader-fragment-heading:first-child {
   margin-top: 0;
 }

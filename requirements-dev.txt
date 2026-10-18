@@ -1,7 +1,4 @@
 -r requirements.txt
 
-# Test dependency
 pytest
-
-# Packaging dependency for the later Windows release step
 pyinstaller

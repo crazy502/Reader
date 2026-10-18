@@ -147,5 +147,5 @@
     return template.replace(/\{(\w+)\}/g, (_match, name) => String(values[name] ?? ""));
   }
 
-  window.notebookPocI18n = { language: requested, t };
+  window.notebookI18n = { language: requested, t };
 })();

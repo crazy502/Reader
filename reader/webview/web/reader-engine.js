@@ -1,20 +1,20 @@
 (function () {
   "use strict";
 
-  const prototype = window.notebookPrototype;
+  const notebookUi = window.notebookUi;
   const positionMap = window.NotebookCharPosition;
-  const i18n = window.notebookPocI18n;
+  const i18n = window.notebookI18n;
   const t = (key, values) => i18n.t(key, values);
-  const elements = prototype.elements;
-  const loadingOverlay = document.getElementById("previewReaderLoading");
-  const loadingDetail = document.getElementById("previewLoadingDetail");
-  const cancelLoadingButton = document.getElementById("previewCancelLoading");
+  const elements = notebookUi.elements;
+  const loadingOverlay = document.getElementById("readerLoading");
+  const loadingDetail = document.getElementById("loadingDetail");
+  const cancelLoadingButton = document.getElementById("cancelLoading");
 
-  document.querySelectorAll("[data-poc-i18n]").forEach((node) => {
-    node.textContent = t(node.dataset.pocI18n);
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
   });
-  document.querySelectorAll("[data-poc-i18n-aria]").forEach((node) => {
-    node.setAttribute("aria-label", t(node.dataset.pocI18nAria));
+  document.querySelectorAll("[data-i18n-aria]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.i18nAria));
   });
 
   const state = {
@@ -61,13 +61,13 @@
   }
 
   function isExternalBookVisible() {
-    const active = prototype.activeBook();
+    const active = notebookUi.activeBook();
     return (
       state.currentBookId !== null &&
       active?.external === true &&
       active.id === state.currentBookId &&
-      prototype.getState().currentPage === "book" &&
-      window.notebookPoc?.getState().appMode === "read" &&
+      notebookUi.getState().currentPage === "book" &&
+      window.notebookShell?.getState().appMode === "read" &&
       document.getElementById("bookPage").classList.contains("is-active")
     );
   }
@@ -75,7 +75,7 @@
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === t("renderSuperseded")) return;
-    prototype.showToast(t("loadFailed", { message }));
+    notebookUi.showToast(t("loadFailed", { message }));
   }
 
   async function selectLocalBook(openAfterAdd) {
@@ -83,15 +83,15 @@
       const result = await callPython("select_novel", openAfterAdd ? "open" : "add");
       if (!result.ok) {
         if (result.cancelled) {
-          prototype.showToast(t("cancelled"));
+          notebookUi.showToast(t("cancelled"));
           return;
         }
         throw new Error(result.error || t("unknownError"));
       }
       const metadata = result.book;
       state.metadata.set(metadata.book_id, metadata);
-      prototype.upsertExternalBook(metadata, { openAfterAdd });
-      prototype.showToast(
+      notebookUi.upsertExternalBook(metadata, { openAfterAdd });
+      notebookUi.showToast(
         t(openAfterAdd ? "loadedNovel" : "addedNovel", { title: metadata.title }),
       );
     } catch (error) {
@@ -107,7 +107,7 @@
 
   function showLoading(book) {
     loadingDetail.textContent = t("openingBook", { title: book.title });
-    prototype.showPage("book");
+    notebookUi.showPage("book");
     loadingOverlay.hidden = false;
   }
 
@@ -117,7 +117,7 @@
 
   function createFragmentNode(fragment) {
     const node = document.createElement(fragment.kind === "heading" ? "h2" : "div");
-    node.className = `poc-reader-fragment poc-reader-fragment-${fragment.kind}`;
+    node.className = `reader-fragment reader-fragment-${fragment.kind}`;
     node.dataset.pyStart = String(fragment.start);
     node.dataset.pyEnd = String(fragment.end);
     node.dataset.chapterIndex = String(fragment.chapter_index);
@@ -144,7 +144,7 @@
     state.rendering = true;
     state.fragments = [];
     state.chapters = payload.chapters;
-    elements.readingArticle.className = "reading-column poc-reader-document poc-reader-document-chunked";
+    elements.readingArticle.className = "reading-column reader-document reader-document-chunked";
     elements.readingArticle.replaceChildren();
     let firstVisibleMs = null;
     let insertCpuMs = 0;
@@ -175,7 +175,7 @@
     const layoutStarted = performance.now();
     const scrollHeight = elements.readingScroll.scrollHeight;
     const layoutMs = performance.now() - layoutStarted;
-    state.fragments = [...elements.readingArticle.querySelectorAll(".poc-reader-fragment")];
+    state.fragments = [...elements.readingArticle.querySelectorAll(".reader-fragment")];
     state.rendering = false;
     return {
       dom_build_ms: performance.now() - domStarted,
@@ -238,8 +238,8 @@
     let container = range?.startContainer || null;
     let fragment =
       container?.nodeType === Node.ELEMENT_NODE
-        ? container.closest?.(".poc-reader-fragment")
-        : container?.parentElement?.closest(".poc-reader-fragment");
+        ? container.closest?.(".reader-fragment")
+        : container?.parentElement?.closest(".reader-fragment");
     if (!fragment) fragment = fallbackTopFragment();
     if (!fragment) return state.positionAnchor;
     const start = Number(fragment.dataset.pyStart);
@@ -300,7 +300,7 @@
     const metadata = state.metadata.get(state.currentBookId);
     if (!metadata) return;
     const chapterIndex = chapterIndexAt(position);
-    prototype.updateExternalBook(state.currentBookId, {
+    notebookUi.updateExternalBook(state.currentBookId, {
       charPosition: position,
       textLength: metadata.text_length,
       chapterIndex,
@@ -349,7 +349,7 @@
     };
     state.metadata.set(book.id, metadata);
     state.currentBookId = book.id;
-    if (options.activate !== false) prototype.activateExternalBook(book.id);
+    if (options.activate !== false) notebookUi.activateExternalBook(book.id);
 
     const operationStarted = performance.now();
     const heapBefore = performance.memory?.usedJSHeapSize ?? null;
@@ -396,7 +396,7 @@
       state.currentBookId === book.id &&
       state.fragments.length
     ) {
-      prototype.activateExternalBook(book.id);
+      notebookUi.activateExternalBook(book.id);
       hideLoading();
       elements.readingScroll.focus({ preventScroll: true });
       return;
@@ -411,9 +411,9 @@
       showLoading(book);
       let prepared = book;
       if (book.persisted) {
-        const metadata = await callPython("prepare_preview_book", book.id);
+        const metadata = await callPython("prepare_book", book.id);
         assertOpenToken(token);
-        prepared = prototype.upsertExternalBook(metadata);
+        prepared = notebookUi.upsertExternalBook(metadata);
         state.metadata.set(book.id, metadata);
       }
       await loadAndRenderBook(prepared, {
@@ -422,9 +422,9 @@
       });
       assertOpenToken(token);
       if (book.persisted) {
-        const committed = await callPython("commit_preview_book", book.id);
+        const committed = await callPython("commit_book", book.id);
         assertOpenToken(token);
-        prototype.updateExternalBook(book.id, {
+        notebookUi.updateExternalBook(book.id, {
           chapterIndex: committed.chapter_index,
           charPosition: committed.char_position,
           textLength: committed.text_length,
@@ -432,8 +432,8 @@
           missing: false,
         });
       }
-      prototype.activateExternalBook(book.id);
-      prototype.renderShelf();
+      notebookUi.activateExternalBook(book.id);
+      notebookUi.renderShelf();
       hideLoading();
       elements.readingScroll.focus({ preventScroll: true });
     } catch (error) {
@@ -444,7 +444,7 @@
         state.positionAnchor = 0;
         state.rendering = false;
         hideLoading();
-        prototype.showPage("shelf");
+        notebookUi.showPage("shelf");
       }
       throw error;
     }
@@ -506,12 +506,12 @@
 
   async function renameBook(bookId, title) {
     try {
-      const updated = await callPython("rename_preview_book", bookId, title);
-      prototype.updateExternalBook(bookId, { title: updated.title });
+      const updated = await callPython("rename_book", bookId, title);
+      notebookUi.updateExternalBook(bookId, { title: updated.title });
       const metadata = state.metadata.get(bookId);
       if (metadata) metadata.title = updated.title;
-      prototype.renderShelf();
-      prototype.showToast(t("renameSucceeded"));
+      notebookUi.renderShelf();
+      notebookUi.showToast(t("renameSucceeded"));
       return updated;
     } catch (error) {
       reportError(error);
@@ -521,9 +521,9 @@
 
   async function relocateBook(bookId) {
     try {
-      const result = await callPython("relocate_preview_book", bookId);
+      const result = await callPython("relocate_book", bookId);
       if (!result.ok || result.cancelled) return null;
-      prototype.updateExternalBook(bookId, {
+      notebookUi.updateExternalBook(bookId, {
         missing: false,
         filePath: result.book.file_path,
       });
@@ -533,8 +533,8 @@
       } else {
         state.metadata.delete(bookId);
       }
-      prototype.renderShelf();
-      prototype.showToast(t("relocatedSucceeded"));
+      notebookUi.renderShelf();
+      notebookUi.showToast(t("relocatedSucceeded"));
       return result.book;
     } catch (error) {
       reportError(error);
@@ -544,15 +544,15 @@
 
   async function removeBook(bookId) {
     try {
-      await callPython("remove_preview_book", bookId);
-      prototype.removeExternalBook(bookId);
+      await callPython("remove_book", bookId);
+      notebookUi.removeExternalBook(bookId);
       state.metadata.delete(bookId);
       if (state.currentBookId === bookId) {
         state.currentBookId = null;
         state.renderedBookId = null;
         state.fragments = [];
       }
-      prototype.showToast(t("removedSucceeded"));
+      notebookUi.showToast(t("removedSucceeded"));
       return true;
     } catch (error) {
       reportError(error);
@@ -561,7 +561,7 @@
   }
 
   async function saveTheme(theme) {
-    return callPython("save_preview_theme", theme);
+    return callPython("save_theme", theme);
   }
 
   function adapter() {
@@ -639,11 +639,11 @@
 
   cancelLoadingButton?.addEventListener("click", () => {
     cancelLoad();
-    prototype.showPage("shelf");
+    notebookUi.showPage("shelf");
   });
 
   bindReflowProtection();
-  prototype.registerExternalAdapter(adapter());
+  notebookUi.registerExternalAdapter(adapter());
 
   window.notebookReader = {
     getState: () => ({

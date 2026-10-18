@@ -19,10 +19,10 @@ import webview
 
 from .i18n import tr
 from .novel_engine import NovelEngineError, NovelLibrary
-from .storage import PreviewStorage, PreviewStorageError
+from .storage import NotebookStorage, NotebookStorageError
 
 
-APP_TITLE = tr("preview_title")
+APP_TITLE = tr("app_title")
 WINDOW_WIDTH = 760
 WINDOW_HEIGHT = 620
 WINDOW_MIN_SIZE = (470, 360)
@@ -126,11 +126,9 @@ class WebViewController:
     def __init__(
         self,
         *,
-        preview_mode: bool = False,
-        preview_data_dir: Path | None = None,
+        data_dir: Path | None = None,
     ) -> None:
         self.window: webview.Window | None = None
-        self.preview_mode = preview_mode
         self.run_error: str | None = None
         self.renderer = "not-started"
         self.runtime = detect_webview2_runtime()
@@ -146,9 +144,9 @@ class WebViewController:
         self._close_save_started = False
         self._allow_close = False
         self._library = NovelLibrary()
-        self._preview = PreviewStorage(preview_data_dir) if preview_mode else None
-        self._preview_library_ids: dict[str, str] = {}
-        self._preview_library_paths: dict[str, str] = {}
+        self._storage = NotebookStorage(data_dir)
+        self._library_ids: dict[str, str] = {}
+        self._library_paths: dict[str, str] = {}
 
     def attach(self, window: webview.Window) -> None:
         self.window = window
@@ -182,11 +180,10 @@ class WebViewController:
                 }
             )
             self._set_mode("work", "startup")
-            if self.preview_mode:
-                self._evaluate(
-                    "window.notebookPreview.bootstrap"
-                    f"({json.dumps(self.preview_snapshot(), ensure_ascii=False)})"
-                )
+            self._evaluate(
+                "window.notebookBridge.bootstrap"
+                f"({json.dumps(self.snapshot(), ensure_ascii=False)})"
+            )
             return native_snapshot
         except Exception as exc:  # pragma: no cover - exercised by live WebView2
             self._fail(f"WebView2 运行失败：{exc}")
@@ -197,10 +194,6 @@ class WebViewController:
 
     def on_closing(self) -> bool | None:
         """Defer the first close until the WebView snapshot is safely persisted."""
-        if not self.preview_mode or self._preview is None:
-            self._stop.set()
-            return
-
         with self._lock:
             if self._allow_close:
                 self._stop.set()
@@ -211,25 +204,25 @@ class WebViewController:
 
         threading.Thread(
             target=self._save_snapshot_and_close,
-            name="preview-close-save",
+            name="notebook-close-save",
             daemon=True,
         ).start()
         return False
 
     def _save_snapshot_and_close(self) -> None:
         try:
-            snapshot = self._evaluate("window.notebookPreview.snapshotForClose()")
-            if isinstance(snapshot, dict) and self._preview is not None:
-                self._preview.save_note(str(snapshot.get("work_note", "")))
+            snapshot = self._evaluate("window.notebookBridge.snapshotForClose()")
+            if isinstance(snapshot, dict):
+                self._storage.save_note(str(snapshot.get("work_note", "")))
                 theme = snapshot.get("reading_theme")
                 if isinstance(theme, str):
-                    self._preview.save_theme(theme)
+                    self._storage.save_theme(theme)
                 book_id = snapshot.get("book_id")
                 position = snapshot.get("char_position")
                 if isinstance(book_id, str) and isinstance(position, (int, float)):
                     self.save_position(book_id, int(position))
         except Exception:
-            logging.exception("关闭测试版时保存最终状态失败")
+            logging.exception("关闭 Notebook 时保存最终状态失败")
         finally:
             with self._lock:
                 self._allow_close = True
@@ -238,12 +231,10 @@ class WebViewController:
                 try:
                     self.window.destroy()
                 except Exception:
-                    logging.exception("保存最终状态后关闭测试版失败")
+                    logging.exception("保存最终状态后关闭 Notebook 失败")
 
-    def preview_snapshot(self) -> dict[str, Any]:
-        if self._preview is None:
-            return {"enabled": False}
-        return self._preview.snapshot()
+    def snapshot(self) -> dict[str, Any]:
+        return self._storage.snapshot()
 
     @contextmanager
     def dialog_guard(self) -> Any:
@@ -281,15 +272,12 @@ class WebViewController:
                         "message": tr("dialog_cancelled"),
                     }
                 selected_path = Path(selected[0])
-                if self._preview is not None:
-                    record = self._preview.add_book(selected_path)
-                    metadata = (
-                        self.prepare_preview_book(record["book_id"])
-                        if normalized_intent == "open"
-                        else record
-                    )
-                else:
-                    metadata = self._library.open_path(selected_path)
+                record = self._storage.add_book(selected_path)
+                metadata = (
+                    self.prepare_book(record["book_id"])
+                    if normalized_intent == "open"
+                    else record
+                )
             if normalized_intent == "open":
                 self._set_mode("read", "explicit-file-open")
             return {
@@ -299,26 +287,24 @@ class WebViewController:
                 "book": metadata,
                 "message": tr("dialog_opened", title=metadata["title"]),
             }
-        except (NovelEngineError, PreviewStorageError) as error:
+        except (NovelEngineError, NotebookStorageError) as error:
             return {"ok": False, "cancelled": False, "error": str(error)}
 
-    def prepare_preview_book(self, book_id: str) -> dict[str, Any]:
-        if self._preview is None:
-            return self._library.metadata(book_id)
-        record = self._preview.record(book_id)
+    def prepare_book(self, book_id: str) -> dict[str, Any]:
+        record = self._storage.record(book_id)
         source = Path(record.file_path)
         if not source.is_file():
-            raise PreviewStorageError(tr("preview_file_missing"))
+            raise NotebookStorageError(tr("file_missing"))
         normalized_path = str(source.resolve(strict=False)).casefold()
-        internal_id = self._preview_library_ids.get(book_id)
+        internal_id = self._library_ids.get(book_id)
         if (
             internal_id is None
-            or self._preview_library_paths.get(book_id) != normalized_path
+            or self._library_paths.get(book_id) != normalized_path
         ):
             loaded = self._library.open_path(source)
             internal_id = str(loaded["book_id"])
-            self._preview_library_ids[book_id] = internal_id
-            self._preview_library_paths[book_id] = normalized_path
+            self._library_ids[book_id] = internal_id
+            self._library_paths[book_id] = normalized_path
         self._library.save_position(internal_id, record.char_position)
         metadata = self._library.metadata(internal_id)
         metadata.update(
@@ -331,49 +317,42 @@ class WebViewController:
         )
         return metadata
 
-    def commit_preview_book(self, book_id: str) -> dict[str, Any]:
-        if self._preview is None:
-            return self._library.metadata(book_id)
-        internal_id = self._preview_library_ids.get(book_id)
+    def commit_book(self, book_id: str) -> dict[str, Any]:
+        internal_id = self._library_ids.get(book_id)
         if internal_id is None:
-            raise PreviewStorageError(tr("preview_book_not_found"))
-        return self._preview.activate_loaded(
+            raise NotebookStorageError(tr("book_not_found"))
+        return self._storage.activate_loaded(
             book_id, self._library.metadata(internal_id)
         )
 
     def render_payload(self, book_id: str) -> dict[str, Any]:
-        internal_id = self._preview_library_ids.get(book_id, book_id)
+        internal_id = self._library_ids.get(book_id, book_id)
         payload = self._library.render_payload(internal_id)
-        if self._preview is not None:
-            record = self._preview.record(book_id)
-            payload.update(
-                {
-                    "book_id": book_id,
-                    "title": record.display_title,
-                    "path": record.file_path,
-                    "char_position": record.char_position,
-                    "persisted": True,
-                }
-            )
+        record = self._storage.record(book_id)
+        payload.update(
+            {
+                "book_id": book_id,
+                "title": record.display_title,
+                "path": record.file_path,
+                "char_position": record.char_position,
+                "persisted": True,
+            }
+        )
         return payload
 
     def save_position(self, book_id: str, position: int) -> dict[str, Any]:
-        internal_id = self._preview_library_ids.get(book_id, book_id)
+        internal_id = self._library_ids.get(book_id, book_id)
         metadata = self._library.save_position(internal_id, position)
-        if self._preview is None:
-            return metadata
         metadata["book_id"] = book_id
-        return self._preview.save_position(book_id, metadata)
+        return self._storage.save_position(book_id, metadata)
 
-    def rename_preview_book(self, book_id: str, title: str) -> dict[str, Any]:
-        if self._preview is None:
-            raise PreviewStorageError(tr("preview_book_not_found"))
-        return self._preview.rename_book(book_id, title)
+    def rename_book(self, book_id: str, title: str) -> dict[str, Any]:
+        return self._storage.rename_book(book_id, title)
 
-    def relocate_preview_book(self, book_id: str) -> dict[str, Any]:
-        if self._preview is None or self.window is None:
-            raise PreviewStorageError(tr("preview_book_not_found"))
-        record = self._preview.record(book_id)
+    def relocate_book(self, book_id: str) -> dict[str, Any]:
+        if self.window is None:
+            raise NotebookStorageError(tr("book_not_found"))
+        record = self._storage.record(book_id)
         extension = record.file_format.lower()
         with self.dialog_guard():
             selected = self.window.create_file_dialog(
@@ -381,7 +360,7 @@ class WebViewController:
                 allow_multiple=False,
                 file_types=(
                     tr(
-                        "preview_relocate_type",
+                        "relocate_type",
                         format=extension.upper(),
                         extension=extension,
                     ),
@@ -389,26 +368,20 @@ class WebViewController:
             )
         if not selected:
             return {"ok": False, "cancelled": True}
-        updated = self._preview.relocate_book(book_id, Path(selected[0]))
+        updated = self._storage.relocate_book(book_id, Path(selected[0]))
         return {"ok": True, "cancelled": False, "book": updated}
 
-    def remove_preview_book(self, book_id: str) -> dict[str, Any]:
-        if self._preview is None:
-            raise PreviewStorageError(tr("preview_book_not_found"))
-        result = self._preview.remove_book(book_id)
-        self._preview_library_ids.pop(book_id, None)
-        self._preview_library_paths.pop(book_id, None)
+    def remove_book(self, book_id: str) -> dict[str, Any]:
+        result = self._storage.remove_book(book_id)
+        self._library_ids.pop(book_id, None)
+        self._library_paths.pop(book_id, None)
         return result
 
-    def save_preview_theme(self, theme: str) -> dict[str, Any]:
-        if self._preview is None:
-            return {"reading_theme": "classic"}
-        return {"reading_theme": self._preview.save_theme(theme)}
+    def save_theme(self, theme: str) -> dict[str, Any]:
+        return {"reading_theme": self._storage.save_theme(theme)}
 
-    def save_preview_note(self, content: str) -> dict[str, Any]:
-        if self._preview is None:
-            return {"saved": False}
-        return {"saved": self._preview.save_note(content)}
+    def save_note(self, content: str) -> dict[str, Any]:
+        return {"saved": self._storage.save_note(content)}
 
     def enable_hover(self) -> dict[str, Any]:
         with self._lock:
@@ -471,13 +444,13 @@ class WebViewController:
                 return
             self.app_mode = normalized
         self._evaluate(
-            "window.notebookPoc.setAppMode"
+            "window.notebookShell.setAppMode"
             f"({json.dumps(normalized)}, {json.dumps(source)})"
         )
 
     def _notify_frontend(self, payload: dict[str, Any]) -> None:
         self._evaluate(
-            "window.notebookPoc.onPythonNotification"
+            "window.notebookShell.onPythonNotification"
             f"({json.dumps(payload, ensure_ascii=False)})"
         )
 
@@ -518,11 +491,11 @@ class WebViewApi:
     def select_novel(self, intent: str = "open") -> str:
         return self._ascii_json(self._controller.select_novel(intent))
 
-    def prepare_preview_book(self, book_id: str) -> str:
-        return self._ascii_json(self._controller.prepare_preview_book(book_id))
+    def prepare_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.prepare_book(book_id))
 
-    def commit_preview_book(self, book_id: str) -> str:
-        return self._ascii_json(self._controller.commit_preview_book(book_id))
+    def commit_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.commit_book(book_id))
 
     def get_render_payload(self, book_id: str) -> str:
         return self._ascii_json(self._controller.render_payload(book_id))
@@ -530,22 +503,20 @@ class WebViewApi:
     def save_position(self, book_id: str, char_position: int) -> str:
         return self._ascii_json(self._controller.save_position(book_id, char_position))
 
-    def rename_preview_book(self, book_id: str, title: str) -> str:
-        return self._ascii_json(
-            self._controller.rename_preview_book(book_id, title)
-        )
+    def rename_book(self, book_id: str, title: str) -> str:
+        return self._ascii_json(self._controller.rename_book(book_id, title))
 
-    def relocate_preview_book(self, book_id: str) -> str:
-        return self._ascii_json(self._controller.relocate_preview_book(book_id))
+    def relocate_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.relocate_book(book_id))
 
-    def remove_preview_book(self, book_id: str) -> str:
-        return self._ascii_json(self._controller.remove_preview_book(book_id))
+    def remove_book(self, book_id: str) -> str:
+        return self._ascii_json(self._controller.remove_book(book_id))
 
-    def save_preview_theme(self, theme: str) -> str:
-        return self._ascii_json(self._controller.save_preview_theme(theme))
+    def save_theme(self, theme: str) -> str:
+        return self._ascii_json(self._controller.save_theme(theme))
 
-    def save_preview_note(self, content: str) -> str:
-        return self._ascii_json(self._controller.save_preview_note(content))
+    def save_note(self, content: str) -> str:
+        return self._ascii_json(self._controller.save_note(content))
 
 
 __all__ = [

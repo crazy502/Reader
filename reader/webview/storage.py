@@ -25,32 +25,32 @@ from ..core.work_note import load_work_note, save_work_note
 from .i18n import tr
 
 
-PREVIEW_APP_NAME = "Notebook-Web-Preview"
+APP_NAME = "Notebook"
 SUPPORTED_THEMES = {"classic", "white", "eye_care", "parchment", "light_gray"}
 DEFAULT_THEME = "classic"
 
 
-class PreviewStorageError(RuntimeError):
-    """User-readable preview persistence or bookshelf error."""
+class NotebookStorageError(RuntimeError):
+    """User-readable Notebook persistence or bookshelf error."""
 
 
-def resolve_preview_data_dir() -> Path:
-    """Return the preview-only data directory without consulting formal config."""
-    override = os.environ.get("NOTEBOOK_WEB_PREVIEW_DATA_DIR")
+def resolve_data_dir() -> Path:
+    """Return Notebook's data directory, with an override for isolated tests."""
+    override = os.environ.get("NOTEBOOK_DATA_DIR")
     if override:
         return Path(override).expanduser().resolve(strict=False)
     appdata = os.environ.get("APPDATA")
     if not appdata:
-        raise PreviewStorageError(tr("preview_appdata_required"))
-    return Path(appdata) / PREVIEW_APP_NAME
+        raise NotebookStorageError(tr("appdata_required"))
+    return Path(appdata) / APP_NAME
 
 
-class PreviewStorage:
-    """Own the isolated bookshelf, global settings, and editable work note."""
+class NotebookStorage:
+    """Own the bookshelf, global settings, and editable work note."""
 
     def __init__(self, data_dir: Path | None = None) -> None:
         self.data_dir = (
-            resolve_preview_data_dir()
+            resolve_data_dir()
             if data_dir is None
             else Path(data_dir).expanduser().resolve(strict=False)
         )
@@ -81,7 +81,7 @@ class PreviewStorage:
     def add_book(self, path: Path | str) -> dict[str, Any]:
         source = Path(path)
         if not source.is_file():
-            raise PreviewStorageError(tr("preview_file_missing"))
+            raise NotebookStorageError(tr("file_missing"))
         with self._lock:
             existing = self.state.find_by_path(source)
             if existing is not None:
@@ -90,7 +90,7 @@ class PreviewStorage:
             try:
                 record = self.state.add_or_activate(source)
             except BookshelfError as error:
-                raise PreviewStorageError(tr("preview_unsupported_file")) from error
+                raise NotebookStorageError(tr("unsupported_file")) from error
             self.state.active_book_id = previous_active
             self._save_bookshelf()
             return self._book_json(record)
@@ -100,7 +100,7 @@ class PreviewStorage:
             try:
                 return self.state.books[str(book_id)]
             except KeyError as error:
-                raise PreviewStorageError(tr("preview_book_not_found")) from error
+                raise NotebookStorageError(tr("book_not_found")) from error
 
     def activate_loaded(self, book_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
         """Persist a successful load and its clamped position metadata."""
@@ -141,7 +141,7 @@ class PreviewStorage:
             try:
                 record = self.state.rename(book_id, title)
             except (KeyError, BookshelfError) as error:
-                raise PreviewStorageError(tr("preview_invalid_title")) from error
+                raise NotebookStorageError(tr("invalid_title")) from error
             self._save_bookshelf()
             return self._book_json(record)
 
@@ -150,11 +150,11 @@ class PreviewStorage:
             try:
                 record = self.state.relocate(book_id, path)
             except DuplicateBookPathError as error:
-                raise PreviewStorageError(tr("preview_duplicate_relocation")) from error
+                raise NotebookStorageError(tr("duplicate_relocation")) from error
             except BookFormatMismatchError as error:
-                raise PreviewStorageError(tr("preview_format_mismatch")) from error
+                raise NotebookStorageError(tr("format_mismatch")) from error
             except (KeyError, BookshelfError) as error:
-                raise PreviewStorageError(tr("preview_relocation_failed")) from error
+                raise NotebookStorageError(tr("relocation_failed")) from error
             self._save_bookshelf()
             return self._book_json(record)
 
@@ -162,7 +162,7 @@ class PreviewStorage:
         with self._lock:
             removed = self.state.remove(book_id)
             if removed is None:
-                raise PreviewStorageError(tr("preview_book_not_found"))
+                raise NotebookStorageError(tr("book_not_found"))
             self._save_bookshelf()
             return {"removed": True, "book_id": book_id}
 
@@ -176,12 +176,12 @@ class PreviewStorage:
     def save_note(self, content: str) -> bool:
         with self._lock:
             if not save_work_note(self.work_note_path, str(content)):
-                raise PreviewStorageError(tr("preview_note_save_failed"))
+                raise NotebookStorageError(tr("note_save_failed"))
         return True
 
     def _save_bookshelf(self) -> None:
         if not save_bookshelf(self.bookshelf_path, self.state):
-            raise PreviewStorageError(tr("preview_bookshelf_save_failed"))
+            raise NotebookStorageError(tr("bookshelf_save_failed"))
 
     def _load_settings(self) -> dict[str, Any]:
         try:
@@ -209,7 +209,7 @@ class PreviewStorage:
                 temporary.flush()
             temporary_name.replace(path)
         except OSError as error:
-            raise PreviewStorageError(tr("preview_settings_save_failed")) from error
+            raise NotebookStorageError(tr("settings_save_failed")) from error
         finally:
             if temporary_name is not None:
                 try:
@@ -238,8 +238,8 @@ class PreviewStorage:
 
 __all__ = [
     "DEFAULT_THEME",
-    "PREVIEW_APP_NAME",
-    "PreviewStorage",
-    "PreviewStorageError",
-    "resolve_preview_data_dir",
+    "APP_NAME",
+    "NotebookStorage",
+    "NotebookStorageError",
+    "resolve_data_dir",
 ]

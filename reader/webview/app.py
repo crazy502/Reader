@@ -26,7 +26,7 @@ WEBVIEW_ROOT = Path(__file__).resolve().parent
 
 
 def resolve_web_root() -> Path:
-    """Locate formal assets while retaining compatibility with the old Preview spec."""
+    """Locate the packaged or source WebView2 assets."""
     candidates: list[Path] = []
     bundle_root = getattr(sys, "_MEIPASS", None)
     if bundle_root:
@@ -34,7 +34,6 @@ def resolve_web_root() -> Path:
         candidates.extend(
             [
                 root / "reader" / "webview" / "web",
-                root / "web",
             ]
         )
     candidates.append(WEBVIEW_ROOT / "web")
@@ -53,7 +52,7 @@ def create_app_window(
     page = index_path or (resolve_web_root() / "index.html")
     if not page.is_file():
         raise FileNotFoundError(f"找不到 WebView2 页面：{page}")
-    controller = WebViewController(preview_mode=True, preview_data_dir=data_dir)
+    controller = WebViewController(data_dir=data_dir)
     api = WebViewApi(controller)
     window = webview.create_window(
         APP_TITLE,
@@ -89,8 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     if not runtime["executable"]:
         ctypes.windll.user32.MessageBoxW(
             None,
-            tr("preview_runtime_missing"),
-            tr("preview_runtime_title"),
+            tr("runtime_missing"),
+            tr("runtime_title"),
             0x10,
         )
         return 2

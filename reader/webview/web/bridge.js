@@ -2,16 +2,16 @@
   "use strict";
 
   const shell = document.getElementById("appShell");
-  const enableHoverButton = document.getElementById("pocEnableHover");
-  const workNote = document.getElementById("pocWorkNote");
-  const noteStatus = document.getElementById("pocNoteStatus");
-  const t = (key, values) => window.notebookPocI18n.t(key, values);
+  const enableHoverButton = document.getElementById("enableHover");
+  const workNote = document.getElementById("workNote");
+  const noteStatus = document.getElementById("noteStatus");
+  const t = (key, values) => window.notebookI18n.t(key, values);
 
-  const pocState = {
+  const state = {
     appMode: "work",
     bridgeReady: false,
     lastNotification: null,
-    previewEnabled: false,
+    initialized: false,
     readingTheme: "classic",
     noteTimer: null,
   };
@@ -29,7 +29,7 @@
 
   function setAppMode(mode, source = "python") {
     const normalized = mode === "read" ? "read" : "work";
-    pocState.appMode = normalized;
+    state.appMode = normalized;
     shell.dataset.appMode = normalized;
     shell.dataset.modeSource = source;
     return getState();
@@ -38,12 +38,12 @@
   function getState() {
     const readingScroll = document.getElementById("readingScroll");
     return {
-      appMode: pocState.appMode,
+      appMode: state.appMode,
       readPage: document.getElementById("bookPage").classList.contains("is-active")
         ? "book"
         : "shelf",
-      bridgeReady: pocState.bridgeReady,
-      bridgeState: pocState.bridgeReady ? "ready" : "pending",
+      bridgeReady: state.bridgeReady,
+      bridgeState: state.bridgeReady ? "ready" : "pending",
       readingScrollTop: Math.round(readingScroll.scrollTop),
       viewport: { width: window.innerWidth, height: window.innerHeight },
       userAgent: navigator.userAgent,
@@ -57,11 +57,11 @@
   }
 
   async function saveWorkNote() {
-    if (!pocState.previewEnabled) return true;
-    window.clearTimeout(pocState.noteTimer);
+    if (!state.initialized) return true;
+    window.clearTimeout(state.noteTimer);
     noteStatus.textContent = t("noteSaving");
     try {
-      const raw = await requireBridge().save_preview_note(workNote.value);
+      const raw = await requireBridge().save_note(workNote.value);
       decodeEnvelope(raw);
       noteStatus.textContent = t("noteSaved");
       return true;
@@ -73,20 +73,20 @@
   }
 
   function scheduleWorkNoteSave() {
-    if (!pocState.previewEnabled) return;
-    window.clearTimeout(pocState.noteTimer);
+    if (!state.initialized) return;
+    window.clearTimeout(state.noteTimer);
     noteStatus.textContent = t("noteSaving");
-    pocState.noteTimer = window.setTimeout(() => void saveWorkNote(), 700);
+    state.noteTimer = window.setTimeout(() => void saveWorkNote(), 700);
   }
 
   function bootstrap(snapshot) {
     if (!snapshot?.enabled) return false;
-    pocState.previewEnabled = true;
-    pocState.readingTheme = snapshot.reading_theme || "classic";
-    document.body.classList.add("preview-live");
+    state.initialized = true;
+    state.readingTheme = snapshot.reading_theme || "classic";
+    document.body.classList.add("app-live");
     workNote.value = snapshot.work_note || "";
     noteStatus.textContent = t("noteReady");
-    window.notebookPrototype.bootstrapPreview(snapshot);
+    window.notebookUi.bootstrap(snapshot);
     return true;
   }
 
@@ -94,25 +94,25 @@
     const reading = window.notebookReader?.getCloseSnapshot?.() || {};
     return {
       work_note: workNote.value,
-      reading_theme: window.notebookPrototype.getState().theme || pocState.readingTheme,
+      reading_theme: window.notebookUi.getState().theme || state.readingTheme,
       book_id: reading.book_id || null,
       char_position: Number(reading.char_position) || 0,
     };
   }
 
   function onPythonNotification(payload) {
-    pocState.lastNotification = payload;
+    state.lastNotification = payload;
     return true;
   }
 
-  window.notebookPoc = {
+  window.notebookShell = {
     getState,
-    getLastNotification: () => pocState.lastNotification,
+    getLastNotification: () => state.lastNotification,
     onPythonNotification,
     setAppMode,
   };
 
-  window.notebookPreview = {
+  window.notebookBridge = {
     bootstrap,
     saveWorkNote,
     snapshotForClose,
@@ -145,6 +145,6 @@
   });
 
   window.addEventListener("pywebviewready", () => {
-    pocState.bridgeReady = true;
+    state.bridgeReady = true;
   });
 })();

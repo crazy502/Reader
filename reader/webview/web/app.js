@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const t = (key, values) => window.notebookPocI18n.t(key, values);
+  const t = (key, values) => window.notebookI18n.t(key, values);
 
   const coverPalette = [
     "#DDD2BD",
@@ -641,7 +641,7 @@
     return book;
   }
 
-  function bootstrapPreview(snapshot) {
+  function bootstrap(snapshot) {
     if (!snapshot?.enabled) return false;
     books = (snapshot.books || []).map((metadata) => ({
       id: metadata.book_id,
@@ -671,10 +671,10 @@
     renderShelf();
   }
 
-  window.notebookPrototype = {
+  window.notebookUi = {
     activateExternalBook,
     activeBook,
-    bootstrapPreview,
+    bootstrap,
     elements,
     getState: () => ({ ...state, externalAdapter: Boolean(state.externalAdapter) }),
     getBooks: () => books.map((book) => ({ ...book })),
