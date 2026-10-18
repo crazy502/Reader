@@ -11,7 +11,7 @@ Notebook 是一款基于 Python、pywebview 和 Microsoft Edge WebView2 的轻�
 - 保持书架、阅读进度和工作便笺简单、稳定、可维护。
 - 不扩展为复杂的电子书管理平台。
 
-WebView2 是唯一正式 UI。不得重新引入 Tkinter、Electron、实验 PoC 或独立 HTML 原型。
+WebView2 是唯一正式 UI。界面实现和调整应集中在 `reader/webview/`，不得另行维护第二套正式 UI。
 
 ## 2. 状态与交互
 
@@ -56,7 +56,7 @@ mode
 - `reader_config.json` 保存全局设置，例如 `reading_theme`。
 - `work_note.txt` 保存工作便笺。
 - JSON 写入必须沿用原子保存机制。
-- 不读取、迁移、修改或删除旧 `%APPDATA%\Reader`、`%APPDATA%\Notebook-Web-Preview`、项目根 `data/` 或 `book/` 内容。
+- 未经明确授权，不读取、迁移、修改或删除任何既有用户数据目录、项目根 `data/` 或 `book/` 内容。
 - 不改变既有数据 schema 和 `char_position` 语义，除非任务明确要求迁移方案。
 
 ## 5. 技术边界
